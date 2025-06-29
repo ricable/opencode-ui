@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { MessageSquare, ArrowLeft, Send, Bot, User } from "lucide-react";
+import { MessageSquare, ArrowLeft, Send, Bot, User, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { useSessionStore, useActiveSession, useActiveSessionMessages } from "@/lib/session-store";
 
 export type OpenCodeView = 
@@ -27,15 +28,54 @@ export function SessionView({ sessionId, onViewChange }: SessionViewProps) {
   const session = useActiveSession();
   const messages = useActiveSessionMessages();
   const { isStreaming, actions } = useSessionStore();
+  
+  // Local state for message input
+  const [messageInput, setMessageInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   useEffect(() => {
     // Load session messages
     actions.loadSessionMessages(sessionId);
-  }, [sessionId]);
+  }, [sessionId, actions]);
 
   const formatTimestamp = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString();
   };
+
+  const handleSendMessage = async () => {
+    if (!messageInput.trim() || isSending || !session) {
+      return;
+    }
+
+    const content = messageInput.trim();
+    setIsSending(true);
+    setSendError(null);
+
+    try {
+      // Clear input immediately for better UX
+      setMessageInput("");
+      
+      // Send message through the session store
+      await actions.sendMessage(sessionId, content);
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      setSendError(error instanceof Error ? error.message : "Failed to send message");
+      // Restore message content on error
+      setMessageInput(content);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const canSendMessage = messageInput.trim().length > 0 && !isSending && !isStreaming && session;
 
   return (
     <div className="flex-1 overflow-hidden bg-background">
@@ -164,17 +204,79 @@ export function SessionView({ sessionId, onViewChange }: SessionViewProps) {
       {/* Message Input */}
       <div className="border-t border-border bg-card p-4">
         <div className="max-w-4xl mx-auto">
+          {/* Error Display */}
+          {sendError && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-3 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center space-x-2 text-red-700 dark:text-red-400"
+            >
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <span className="text-sm">{sendError}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSendError(null)}
+                className="ml-auto h-6 px-2 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20"
+              >
+                ×
+              </Button>
+            </motion.div>
+          )}
+          
           <div className="flex space-x-3">
             <div className="flex-1">
-              <textarea
-                placeholder="Type your message..."
-                className="w-full p-3 border border-border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
+              <Textarea
+                value={messageInput}
+                onChange={(e) => setMessageInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={
+                  !session 
+                    ? "Loading session..." 
+                    : isStreaming 
+                    ? "AI is responding..." 
+                    : "Type your message... (Enter to send, Shift+Enter for new line)"
+                }
+                disabled={!session || isStreaming || isSending}
+                className="min-h-[80px] resize-none"
                 rows={3}
               />
             </div>
-            <Button className="self-end">
-              <Send className="h-4 w-4" />
+            <Button 
+              onClick={handleSendMessage}
+              disabled={!canSendMessage}
+              size="sm"
+              className="self-end"
+            >
+              {isSending ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
             </Button>
+          </div>
+          
+          {/* Status Information */}
+          <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
+            <div className="flex items-center space-x-4">
+              {session && (
+                <>
+                  <span>Provider: {session.provider}</span>
+                  <span>Model: {session.model}</span>
+                </>
+              )}
+            </div>
+            <div className="flex items-center space-x-2">
+              {messageInput.length > 0 && (
+                <span>{messageInput.length} characters</span>
+              )}
+              {isStreaming && (
+                <span className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                  <span>AI is responding...</span>
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>

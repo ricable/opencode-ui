@@ -19,7 +19,13 @@ import {
   ExternalLink,
   Copy,
   Eye,
-  EyeOff
+  EyeOff,
+  Package,
+  Activity,
+  TestTube,
+  FileDown,
+  FileUp,
+  Monitor
 } from "lucide-react";
 export type OpenCodeView = 
   | "welcome" 
@@ -44,10 +50,23 @@ import { Switch } from "@/components/ui/switch";
 import { useSessionStore } from "@/lib/session-store";
 import { cn } from "@/lib/utils";
 
+// Enhanced MCP Components
+import { ServerConfigForm } from "@/components/mcp/server-config-form";
+import { ServerDashboard } from "@/components/mcp/server-dashboard";
+import { ServerHealthMonitor } from "@/components/mcp/server-health-monitor";
+import { ServerTemplates } from "@/components/mcp/server-templates";
+import { 
+  MCPServerConfig, 
+  MCPServerWithStatus, 
+  MCPServerTemplate,
+  MCPServerTestResult 
+} from "@/lib/types/mcp";
+
 interface MCPViewProps {
   onViewChange: (view: OpenCodeView) => void;
 }
 
+// Legacy interface for backward compatibility
 interface MCPServer {
   id: string;
   name: string;
@@ -89,11 +108,105 @@ const mockMCPServers: MCPServer[] = [
 ];
 
 export function MCPView({ onViewChange }: MCPViewProps) {
-  const [servers, setServers] = useState<MCPServer[]>(mockMCPServers);
+  const [servers, setServers] = useState<MCPServerWithStatus[]>([]);
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [selectedServer, setSelectedServer] = useState<MCPServer | null>(null);
-  const [showEnvVars, setShowEnvVars] = useState<Record<string, boolean>>({});
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showTemplatesDialog, setShowTemplatesDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [selectedServer, setSelectedServer] = useState<MCPServerConfig | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<"dashboard" | "health" | "templates" | "logs">("dashboard");
+  const [loading, setLoading] = useState(false);
+
+  // Mock enhanced server data
+  const mockEnhancedServers: MCPServerWithStatus[] = mockMCPServers.map(server => ({
+    id: server.id,
+    name: server.name,
+    description: `Enhanced ${server.name} server with advanced features`,
+    type: server.type === "stdio" ? "local" : "remote",
+    enabled: true,
+    command: server.command ? [server.command, ...(server.args || [])] : undefined,
+    url: server.url,
+    environment: server.env,
+    timeout: 30000,
+    retryAttempts: 3,
+    retryDelay: 1000,
+    autoRestart: true,
+    category: "automation",
+    tags: ["automation", "tools"],
+    created_at: Date.now() - Math.random() * 86400000,
+    updated_at: Date.now(),
+    status: {
+      id: server.id,
+      status: server.status,
+      connected_at: server.lastConnected,
+      last_ping: Date.now() - Math.random() * 60000,
+      uptime: Math.random() * 86400000,
+      restart_count: Math.floor(Math.random() * 5),
+      process_id: Math.floor(Math.random() * 10000),
+      memory_usage: Math.random() * 100000000,
+      cpu_usage: Math.random() * 10,
+      tools_count: server.tools.length,
+      resources_count: Math.floor(Math.random() * 5)
+    },
+    health: {
+      id: server.id,
+      healthy: server.status === "connected",
+      response_time: Math.random() * 2000,
+      last_health_check: Date.now() - Math.random() * 300000,
+      error_count: Math.floor(Math.random() * 10),
+      warning_count: Math.floor(Math.random() * 5),
+      performance_score: 70 + Math.random() * 30,
+      availability_percentage: 90 + Math.random() * 10
+    },
+    metrics: {
+      id: server.id,
+      requests_total: Math.floor(Math.random() * 1000),
+      requests_successful: Math.floor(Math.random() * 900),
+      requests_failed: Math.floor(Math.random() * 100),
+      avg_response_time: Math.random() * 1000,
+      min_response_time: Math.random() * 100,
+      max_response_time: Math.random() * 5000,
+      bytes_sent: Math.random() * 1000000,
+      bytes_received: Math.random() * 1000000,
+      last_24h: {
+        requests: Math.floor(Math.random() * 100),
+        errors: Math.floor(Math.random() * 10),
+        avg_response_time: Math.random() * 1000
+      },
+      last_7d: {
+        requests: Math.floor(Math.random() * 500),
+        errors: Math.floor(Math.random() * 50),
+        avg_response_time: Math.random() * 1000
+      }
+    },
+    tools: server.tools.map((tool, idx) => ({
+      id: `${server.id}-tool-${idx}`,
+      server_id: server.id,
+      name: tool,
+      description: `${tool} tool for ${server.name}`,
+      enabled: true,
+      category: "automation",
+      usage_count: Math.floor(Math.random() * 100),
+      last_used: Date.now() - Math.random() * 86400000,
+      error_count: Math.floor(Math.random() * 5),
+      avg_execution_time: Math.random() * 5000
+    })),
+    resources: Array.from({ length: Math.floor(Math.random() * 5) }, (_, idx) => ({
+      id: `${server.id}-resource-${idx}`,
+      server_id: server.id,
+      name: `Resource ${idx + 1}`,
+      description: `Resource ${idx + 1} for ${server.name}`,
+      type: "file",
+      uri: `/resources/${server.id}/resource-${idx}`,
+      last_accessed: Date.now() - Math.random() * 86400000,
+      access_count: Math.floor(Math.random() * 50)
+    }))
+  }));
+
+  useEffect(() => {
+    setServers(mockEnhancedServers);
+  }, []);
   
   const getStatusIcon = (status: MCPServer['status']) => {
     switch (status) {
@@ -127,27 +240,43 @@ export function MCPView({ onViewChange }: MCPViewProps) {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    // Simulate API call
+    // Simulate API call to refresh server data
     await new Promise(resolve => setTimeout(resolve, 1000));
+    // In real implementation, this would call the OpenCode API
+    setServers(mockEnhancedServers);
     setRefreshing(false);
   };
 
   const handleStartServer = async (serverId: string) => {
     setServers(prev => prev.map(s => 
-      s.id === serverId ? { ...s, status: 'connecting' } : s
+      s.id === serverId ? { 
+        ...s, 
+        status: { ...s.status, status: 'connecting' }
+      } : s
     ));
     
     // Simulate connection
     setTimeout(() => {
       setServers(prev => prev.map(s => 
-        s.id === serverId ? { ...s, status: 'connected', lastConnected: Date.now() } : s
+        s.id === serverId ? { 
+          ...s, 
+          status: { 
+            ...s.status, 
+            status: 'connected', 
+            connected_at: Date.now(),
+            last_ping: Date.now()
+          }
+        } : s
       ));
     }, 2000);
   };
 
   const handleStopServer = async (serverId: string) => {
     setServers(prev => prev.map(s => 
-      s.id === serverId ? { ...s, status: 'disconnected' } : s
+      s.id === serverId ? { 
+        ...s, 
+        status: { ...s.status, status: 'disconnected' }
+      } : s
     ));
   };
 
@@ -155,21 +284,119 @@ export function MCPView({ onViewChange }: MCPViewProps) {
     setServers(prev => prev.filter(s => s.id !== serverId));
   };
 
-  const toggleEnvVisibility = (serverId: string) => {
-    setShowEnvVars(prev => ({
-      ...prev,
-      [serverId]: !prev[serverId]
-    }));
-  };
-
-  const formatCommand = (server: MCPServer) => {
-    if (server.type === 'sse') {
-      return server.url || '';
+  const handleEditServer = (serverId: string) => {
+    const server = servers.find(s => s.id === serverId);
+    if (server) {
+      setSelectedServer(server);
+      setShowEditDialog(true);
     }
-    return [server.command, ...(server.args || [])].join(' ');
   };
 
-  const connectedCount = servers.filter(s => s.status === 'connected').length;
+  const handleSaveServer = async (config: MCPServerConfig) => {
+    setLoading(true);
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      if (selectedServer) {
+        // Update existing server
+        setServers(prev => prev.map(s => 
+          s.id === config.id ? { ...s, ...config } : s
+        ));
+      } else {
+        // Add new server
+        const newServer: MCPServerWithStatus = {
+          ...config,
+          status: {
+            id: config.id,
+            status: 'disconnected',
+            tools_count: 0,
+            resources_count: 0
+          },
+          health: {
+            id: config.id,
+            healthy: false
+          },
+          metrics: {
+            id: config.id,
+            requests_total: 0,
+            requests_successful: 0,
+            requests_failed: 0,
+            avg_response_time: 0,
+            min_response_time: 0,
+            max_response_time: 0,
+            bytes_sent: 0,
+            bytes_received: 0,
+            last_24h: { requests: 0, errors: 0, avg_response_time: 0 },
+            last_7d: { requests: 0, errors: 0, avg_response_time: 0 }
+          },
+          tools: [],
+          resources: []
+        };
+        setServers(prev => [...prev, newServer]);
+      }
+      
+      setShowAddDialog(false);
+      setShowEditDialog(false);
+      setSelectedServer(null);
+    } catch (error) {
+      console.error('Failed to save server:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTestServer = async (config: Partial<MCPServerConfig>): Promise<MCPServerTestResult> => {
+    // Simulate connection test
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    const success = Math.random() > 0.3; // 70% success rate for demo
+    
+    return {
+      success,
+      status: success ? 'reachable' : 'unreachable',
+      response_time: success ? Math.random() * 1000 : undefined,
+      error: success ? undefined : 'Connection refused or server not responding',
+      details: success ? {
+        tools_discovered: Math.floor(Math.random() * 10),
+        resources_discovered: Math.floor(Math.random() * 5),
+        capabilities: ['tools', 'resources', 'notifications']
+      } : undefined,
+      timestamp: Date.now()
+    };
+  };
+
+  const handleInstallTemplate = async (template: MCPServerTemplate) => {
+    setLoading(true);
+    try {
+      // Simulate template installation
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const config: MCPServerConfig = {
+        ...template.config,
+        id: template.id,
+        name: template.name,
+        description: template.description,
+        type: template.config.type || 'local',
+        enabled: template.config.enabled ?? true,
+        created_at: Date.now(),
+        updated_at: Date.now()
+      } as MCPServerConfig;
+      
+      await handleSaveServer(config);
+      setShowTemplatesDialog(false);
+    } catch (error) {
+      console.error('Failed to install template:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getInstalledServerIds = () => {
+    return servers.map(s => s.id);
+  };
+
+  const connectedCount = servers.filter(s => s.status.status === 'connected').length;
   const totalCount = servers.length;
 
   return (
@@ -199,24 +426,21 @@ export function MCPView({ onViewChange }: MCPViewProps) {
               <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
               Refresh
             </Button>
+            <Button 
+              variant="outline"
+              onClick={() => setShowTemplatesDialog(true)}
+            >
+              <Package className="h-4 w-4 mr-2" />
+              Templates
+            </Button>
             <Button variant="outline">
               <Download className="h-4 w-4 mr-2" />
               Import/Export
             </Button>
-            <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Server
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Add MCP Server</DialogTitle>
-                </DialogHeader>
-                <AddServerForm onClose={() => setShowAddDialog(false)} />
-              </DialogContent>
-            </Dialog>
+            <Button onClick={() => setShowAddDialog(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Server
+            </Button>
           </div>
         </div>
         <p className="text-muted-foreground mt-2">
@@ -244,283 +468,117 @@ export function MCPView({ onViewChange }: MCPViewProps) {
         </div>
       </div>
 
+      {/* Navigation Tabs */}
+      <div className="px-6 border-b border-border">
+        <Tabs value={activeTab} onValueChange={(value: any) => setActiveTab(value)}>
+          <TabsList className="grid w-full grid-cols-4 max-w-2xl">
+            <TabsTrigger value="dashboard" className="flex items-center space-x-2">
+              <Monitor className="h-4 w-4" />
+              <span>Dashboard</span>
+            </TabsTrigger>
+            <TabsTrigger value="health" className="flex items-center space-x-2">
+              <Activity className="h-4 w-4" />
+              <span>Health</span>
+            </TabsTrigger>
+            <TabsTrigger value="templates" className="flex items-center space-x-2">
+              <Package className="h-4 w-4" />
+              <span>Templates</span>
+            </TabsTrigger>
+            <TabsTrigger value="logs" className="flex items-center space-x-2">
+              <FileDown className="h-4 w-4" />
+              <span>Logs</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
       {/* Content */}
       <div className="flex-1 overflow-auto p-6">
-        <div className="space-y-6">
-          {/* Local Servers Section */}
-          <div>
-            <div className="flex items-center space-x-2 mb-4">
-              <h2 className="text-lg font-semibold">Local (Project-specific)</h2>
-              <Badge variant="outline">({servers.filter(s => s.type === 'stdio').length})</Badge>
-            </div>
-            
-            <div className="space-y-3">
-              {servers.filter(s => s.type === 'stdio').map((server) => (
-                <motion.div
-                  key={server.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-card border rounded-lg"
-                >
-                  <div className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <ChevronRight className="h-4 w-4 text-yellow-500" />
-                        <div>
-                          <div className="font-medium">{server.name}</div>
-                          <div className="text-sm text-muted-foreground font-mono">
-                            {formatCommand(server)}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedServer(selectedServer?.id === server.id ? null : server)}
-                        >
-                          {selectedServer?.id === server.id ? 'Hide full' : 'Show full'}
-                        </Button>
-                        
-                        {server.status === 'connected' ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleStopServer(server.id)}
-                          >
-                            <StopCircle className="h-4 w-4 mr-1" />
-                            Stop
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleStartServer(server.id)}
-                          >
-                            <PlayCircle className="h-4 w-4 mr-1" />
-                            Start
-                          </Button>
-                        )}
-                        
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteServer(server.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
+        <Tabs value={activeTab} className="h-full">
+          <TabsContent value="dashboard" className="h-full mt-0">
+            <ServerDashboard
+              servers={servers}
+              onRefresh={handleRefresh}
+              onStartServer={handleStartServer}
+              onStopServer={handleStopServer}
+              onDeleteServer={handleDeleteServer}
+              onEditServer={handleEditServer}
+              refreshing={refreshing}
+            />
+          </TabsContent>
 
-                    {/* Expanded Details */}
-                    {selectedServer?.id === server.id && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        className="mt-4 pt-4 border-t space-y-3"
-                      >
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground">Status</Label>
-                            <div className="flex items-center space-x-2 mt-1">
-                              {getStatusIcon(server.status)}
-                              <Badge 
-                                variant="outline"
-                                className={cn("text-white", getStatusColor(server.status))}
-                              >
-                                {server.status}
-                              </Badge>
-                            </div>
-                          </div>
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground">Type</Label>
-                            <div className="mt-1">
-                              <Badge variant="secondary">{server.type}</Badge>
-                            </div>
-                          </div>
-                        </div>
+          <TabsContent value="health" className="h-full mt-0">
+            <ServerHealthMonitor
+              servers={servers}
+              onRefresh={handleRefresh}
+              onConfigureThresholds={(thresholds) => {
+                console.log('Configure thresholds:', thresholds);
+                // In real implementation, this would save thresholds to OpenCode config
+              }}
+              refreshing={refreshing}
+            />
+          </TabsContent>
 
-                        <div>
-                          <Label className="text-xs font-medium text-muted-foreground">Command</Label>
-                          <div className="mt-1 p-2 bg-muted rounded text-sm font-mono">
-                            {formatCommand(server)}
-                          </div>
-                        </div>
+          <TabsContent value="templates" className="h-full mt-0">
+            <ServerTemplates
+              onInstallTemplate={handleInstallTemplate}
+              installedServers={getInstalledServerIds()}
+            />
+          </TabsContent>
 
-                        {server.tools && server.tools.length > 0 && (
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground">Available Tools</Label>
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {server.tools.map((tool) => (
-                                <Badge key={tool} variant="outline" className="text-xs">
-                                  {tool}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {server.lastConnected && (
-                          <div>
-                            <Label className="text-xs font-medium text-muted-foreground">Last Connected</Label>
-                            <div className="mt-1 text-sm">
-                              {new Date(server.lastConnected).toLocaleString()}
-                            </div>
-                          </div>
-                        )}
-                      </motion.div>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-
-          {/* Remote Servers Section */}
-          <div>
-            <div className="flex items-center space-x-2 mb-4">
-              <h2 className="text-lg font-semibold">Remote (SSE)</h2>
-              <Badge variant="outline">({servers.filter(s => s.type === 'sse').length})</Badge>
-            </div>
-            
-            {servers.filter(s => s.type === 'sse').length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <ExternalLink className="h-8 w-8 mx-auto mb-2" />
-                <p>No remote servers configured</p>
-                <p className="text-sm">Add a remote MCP server to get started</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {servers.filter(s => s.type === 'sse').map((server) => (
-                  <Card key={server.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <ExternalLink className="h-4 w-4 text-blue-500" />
-                          <div>
-                            <div className="font-medium">{server.name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {server.url}
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center space-x-2">
-                          {getStatusIcon(server.status)}
-                          <Badge 
-                            variant="outline"
-                            className={cn("text-white", getStatusColor(server.status))}
-                          >
-                            {server.status}
-                          </Badge>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+          <TabsContent value="logs" className="h-full mt-0">
+            <Card className="h-full">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Activity className="h-5 w-5" />
+                  <span>Server Logs</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-12 text-muted-foreground">
+                  <Activity className="h-12 w-12 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Logs Coming Soon</h3>
+                  <p>Real-time server logs and debugging information will be available here</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
+
+      {/* Dialogs */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Add MCP Server</DialogTitle>
+          </DialogHeader>
+          <ServerConfigForm
+            onSave={handleSaveServer}
+            onTest={handleTestServer}
+            onCancel={() => setShowAddDialog(false)}
+            loading={loading}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Edit MCP Server</DialogTitle>
+          </DialogHeader>
+          <ServerConfigForm
+            server={selectedServer || undefined}
+            onSave={handleSaveServer}
+            onTest={handleTestServer}
+            onCancel={() => {
+              setShowEditDialog(false);
+              setSelectedServer(null);
+            }}
+            loading={loading}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-// Add Server Form Component
-function AddServerForm({ onClose }: { onClose: () => void }) {
-  const [serverType, setServerType] = useState<'stdio' | 'sse'>('stdio');
-  const [formData, setFormData] = useState({
-    name: '',
-    command: '',
-    args: '',
-    url: '',
-    env: ''
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Handle form submission
-    console.log('Adding server:', { ...formData, type: serverType });
-    onClose();
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <Label>Server Type</Label>
-        <Select 
-          value={serverType} 
-          onValueChange={(value: 'stdio' | 'sse') => setServerType(value)}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="stdio">Local (stdio)</SelectItem>
-            <SelectItem value="sse">Remote (SSE)</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div>
-        <Label>Server Name</Label>
-        <Input
-          value={formData.name}
-          onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-          placeholder="e.g., puppeteer, filesystem"
-        />
-      </div>
-
-      {serverType === 'stdio' ? (
-        <>
-          <div>
-            <Label>Command</Label>
-            <Input
-              value={formData.command}
-              onChange={(e) => setFormData(prev => ({ ...prev, command: e.target.value }))}
-              placeholder="e.g., npx puppeteer-mcp-server"
-            />
-          </div>
-          <div>
-            <Label>Arguments (space-separated)</Label>
-            <Input
-              value={formData.args}
-              onChange={(e) => setFormData(prev => ({ ...prev, args: e.target.value }))}
-              placeholder="--port 3000 --verbose"
-            />
-          </div>
-        </>
-      ) : (
-        <div>
-          <Label>Server URL</Label>
-          <Input
-            value={formData.url}
-            onChange={(e) => setFormData(prev => ({ ...prev, url: e.target.value }))}
-            placeholder="https://example.com/mcp"
-          />
-        </div>
-      )}
-
-      <div>
-        <Label>Environment Variables (JSON)</Label>
-        <Textarea
-          value={formData.env}
-          onChange={(e) => setFormData(prev => ({ ...prev, env: e.target.value }))}
-          placeholder='{"API_KEY": "your-key", "DEBUG": "true"}'
-          rows={3}
-        />
-      </div>
-
-      <div className="flex justify-end space-x-2">
-        <Button type="button" variant="outline" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button type="submit">
-          Add Server
-        </Button>
-      </div>
-    </form>
-  );
-}

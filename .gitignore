@@ -109,3 +109,26 @@ Cargo.lock
 reports/
 logs/
 *.md.bak
+
+# OpenCode specific
+.opencode/
+opencode.json.local
+auth.json
+
+# Additional build outputs
+*.tsbuildinfo
+.turbo/
+
+# Package manager files
+package-lock.json
+yarn.lock
+bun.lockb
+
+# Additional IDE files
+*.sublime-*
+.fleet/
+.vs/
+
+# Test artifacts
+junit.xml
+test-results.xml

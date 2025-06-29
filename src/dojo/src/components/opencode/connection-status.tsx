@@ -169,7 +169,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ collapsed = 
           size="sm"
           className="w-full"
           onClick={handleRetryConnection}
-          disabled={serverStatus === 'connecting'}
+          disabled={false}
         >
           <Wifi className="h-3 w-3 mr-2" />
           Retry Connection

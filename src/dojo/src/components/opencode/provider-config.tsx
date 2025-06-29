@@ -190,9 +190,9 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ providerId, open
     
     try {
       // Different test logic for local vs cloud providers
-      if (providerConfig.type === 'local' || providerConfig.type === 'custom') {
+      if ((providerConfig as any).type === 'local' || (providerConfig as any).type === 'custom') {
         // For local providers, test the baseURL connectivity
-        const baseURL = config.baseURL || providerConfig.fields.find(f => f.key === 'baseURL')?.default;
+        const baseURL = config.baseURL || (providerConfig.fields.find(f => f.key === 'baseURL') as any)?.default;
         if (!baseURL) {
           setTestResult({ success: false, message: 'Base URL is required for local providers.' });
           return;

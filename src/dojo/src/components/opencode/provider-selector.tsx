@@ -287,18 +287,16 @@ export const ProviderSelector: React.FC = () => {
               <div className="flex items-center space-x-2">
                 {smartRouting && recommendedProvider && recommendedProvider.id !== activeProvider && (
                   <Tooltip>
-                    <TooltipTrigger>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-blue-500 hover:bg-blue-50"
+                    <TooltipTrigger asChild>
+                      <button
+                        className="h-8 w-8 p-0 text-blue-500 hover:bg-blue-50 rounded-md border border-transparent hover:border-blue-200 transition-colors inline-flex items-center justify-center"
                         onClick={(e) => {
                           e.stopPropagation();
                           actions.setActiveProvider(recommendedProvider.id);
                         }}
                       >
                         <Brain className="h-4 w-4" />
-                      </Button>
+                      </button>
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>AI recommends: {recommendedProvider.name}</p>

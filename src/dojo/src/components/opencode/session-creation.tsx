@@ -208,8 +208,6 @@ const ProviderCard: React.FC<ProviderCardProps> = ({ provider, isSelected, onSel
     };
     return colors[providerId as keyof typeof colors] || 'border-gray-500 bg-gray-50 dark:bg-gray-950';
   };
-    return colors[providerId as keyof typeof colors] || 'border-gray-500 bg-gray-50 dark:bg-gray-950';
-  };
 
   return (
     <Card 
