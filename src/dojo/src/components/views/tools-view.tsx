@@ -28,26 +28,18 @@ import {
   Database,
   Bug
 } from "lucide-react";
-export type OpenCodeView = 
-  | "welcome" 
-  | "projects" 
-  | "providers" 
-  | "agents" 
-  | "settings" 
-  | "session" 
-  | "usage-dashboard" 
-  | "mcp"
-  | "tools";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSessionStore } from "@/lib/session-store";
 import { cn } from "@/lib/utils";
+import { OpenCodeView } from "@/types/opencode";
 
 interface ToolsViewProps {
   onViewChange: (view: OpenCodeView) => void;
@@ -285,6 +277,7 @@ export function ToolsView({ onViewChange }: ToolsViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [showOnlyEnabled, setShowOnlyEnabled] = useState(false);
   const [selectedExecution, setSelectedExecution] = useState<ToolExecution | null>(null);
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   
   const { actions } = useSessionStore();
 
@@ -397,14 +390,17 @@ export function ToolsView({ onViewChange }: ToolsViewProps) {
               <Plug className="h-4 w-4 mr-2" />
               MCP Servers
             </Button>
-            <Button variant="outline">
+            <Button 
+              variant="outline"
+              onClick={() => setShowSettingsDialog(true)}
+            >
               <Settings className="h-4 w-4 mr-2" />
               Settings
             </Button>
           </div>
         </div>
         <p className="text-muted-foreground mt-2">
-          Monitor and manage OpenCode's built-in tools and MCP integrations
+          Monitor and manage OpenCode&apos;s built-in tools and MCP integrations
         </p>
       </div>
 
@@ -707,6 +703,193 @@ export function ToolsView({ onViewChange }: ToolsViewProps) {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Tool Settings Dialog */}
+      <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <Settings className="h-5 w-5" />
+              <span>Tool Configuration Settings</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <Tabs defaultValue="general" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="general">General</TabsTrigger>
+                <TabsTrigger value="permissions">Permissions</TabsTrigger>
+                <TabsTrigger value="security">Security</TabsTrigger>
+                <TabsTrigger value="performance">Performance</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="general" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Default Tool Behavior</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>Auto-enable new tools</Label>
+                        <p className="text-sm text-muted-foreground">Automatically enable newly discovered tools</p>
+                      </div>
+                      <Switch defaultChecked />
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>Show usage statistics</Label>
+                        <p className="text-sm text-muted-foreground">Display tool usage metrics in the interface</p>
+                      </div>
+                      <Switch defaultChecked />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Default timeout (seconds)</Label>
+                      <Input type="number" defaultValue="30" className="max-w-24" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              <TabsContent value="permissions" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Tool Permissions</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label>File system access</Label>
+                          <p className="text-sm text-muted-foreground">Allow tools to read and write files</p>
+                        </div>
+                        <Select defaultValue="restricted">
+                          <SelectTrigger className="w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="disabled">Disabled</SelectItem>
+                            <SelectItem value="restricted">Restricted</SelectItem>
+                            <SelectItem value="full">Full Access</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label>Network access</Label>
+                          <p className="text-sm text-muted-foreground">Allow tools to make network requests</p>
+                        </div>
+                        <Select defaultValue="restricted">
+                          <SelectTrigger className="w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="disabled">Disabled</SelectItem>
+                            <SelectItem value="restricted">Restricted</SelectItem>
+                            <SelectItem value="full">Full Access</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label>System commands</Label>
+                          <p className="text-sm text-muted-foreground">Allow tools to execute system commands</p>
+                        </div>
+                        <Select defaultValue="approval">
+                          <SelectTrigger className="w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="disabled">Disabled</SelectItem>
+                            <SelectItem value="approval">Needs Approval</SelectItem>
+                            <SelectItem value="full">Full Access</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              <TabsContent value="security" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Security Settings</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>Require approval for high-risk tools</Label>
+                        <p className="text-sm text-muted-foreground">Always prompt before executing potentially dangerous tools</p>
+                      </div>
+                      <Switch defaultChecked />
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>Sandbox tool execution</Label>
+                        <p className="text-sm text-muted-foreground">Run tools in isolated environment when possible</p>
+                      </div>
+                      <Switch defaultChecked />
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>Log all tool executions</Label>
+                        <p className="text-sm text-muted-foreground">Keep detailed logs of tool usage for security auditing</p>
+                      </div>
+                      <Switch defaultChecked />
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              <TabsContent value="performance" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Performance Settings</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Maximum concurrent tool executions</Label>
+                      <Input type="number" defaultValue="5" className="max-w-24" />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Tool execution timeout (seconds)</Label>
+                      <Input type="number" defaultValue="120" className="max-w-24" />
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>Cache tool results</Label>
+                        <p className="text-sm text-muted-foreground">Cache results to improve performance for repeated operations</p>
+                      </div>
+                      <Switch defaultChecked />
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+
+            <div className="flex justify-end space-x-3 pt-4 border-t">
+              <Button variant="outline" onClick={() => setShowSettingsDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => {
+                // Save settings (placeholder)
+                console.log('Saving tool settings');
+                setShowSettingsDialog(false);
+              }}>
+                Save Settings
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Execution Details Modal */}
       {selectedExecution && (

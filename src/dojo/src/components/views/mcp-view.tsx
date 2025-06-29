@@ -27,16 +27,6 @@ import {
   FileUp,
   Monitor
 } from "lucide-react";
-export type OpenCodeView = 
-  | "welcome" 
-  | "projects" 
-  | "providers" 
-  | "agents" 
-  | "settings" 
-  | "session" 
-  | "usage-dashboard" 
-  | "mcp"
-  | "tools";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +38,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { useSessionStore } from "@/lib/session-store";
+import { OpenCodeView } from "@/types/opencode";
 import { cn } from "@/lib/utils";
 
 // Enhanced MCP Components
@@ -113,6 +104,7 @@ export function MCPView({ onViewChange }: MCPViewProps) {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showTemplatesDialog, setShowTemplatesDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showImportExportDialog, setShowImportExportDialog] = useState(false);
   const [selectedServer, setSelectedServer] = useState<MCPServerConfig | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<"dashboard" | "health" | "templates" | "logs">("dashboard");
@@ -433,7 +425,10 @@ export function MCPView({ onViewChange }: MCPViewProps) {
               <Package className="h-4 w-4 mr-2" />
               Templates
             </Button>
-            <Button variant="outline">
+            <Button 
+              variant="outline"
+              onClick={() => setShowImportExportDialog(true)}
+            >
               <Download className="h-4 w-4 mr-2" />
               Import/Export
             </Button>
@@ -576,6 +571,117 @@ export function MCPView({ onViewChange }: MCPViewProps) {
             }}
             loading={loading}
           />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showImportExportDialog} onOpenChange={setShowImportExportDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Import/Export MCP Server Configurations</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <Tabs defaultValue="export">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="export">Export</TabsTrigger>
+                <TabsTrigger value="import">Import</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="export" className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Export Format</Label>
+                  <Select defaultValue="json">
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="json">JSON Configuration</SelectItem>
+                      <SelectItem value="yaml">YAML Configuration</SelectItem>
+                      <SelectItem value="backup">Full Backup (ZIP)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Select Servers to Export</Label>
+                  <div className="max-h-40 overflow-y-auto border rounded p-3 space-y-2">
+                    {servers.map(server => (
+                      <div key={server.id} className="flex items-center space-x-2">
+                        <input type="checkbox" defaultChecked />
+                        <span className="text-sm">{server.name}</span>
+                        <Badge variant="outline" className={cn(
+                          server.status.status === 'connected' ? 'text-green-600' : 'text-gray-600'
+                        )}>
+                          {server.status.status}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                <Button 
+                  className="w-full"
+                  onClick={() => {
+                    // Simulate export
+                    const config = { servers: servers.map(s => ({ id: s.id, name: s.name, type: s.type })) };
+                    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'mcp-servers-config.json';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  <FileDown className="h-4 w-4 mr-2" />
+                  Export Configuration
+                </Button>
+              </TabsContent>
+              
+              <TabsContent value="import" className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Import Configuration File</Label>
+                  <Input 
+                    type="file" 
+                    accept=".json,.yaml,.yml,.zip"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        // Handle file import (placeholder)
+                        console.log('Importing file:', file.name);
+                      }
+                    }}
+                  />
+                </div>
+                
+                <div className="p-4 bg-blue-50 rounded border border-blue-200">
+                  <div className="flex items-start space-x-2">
+                    <FileUp className="h-5 w-5 text-blue-600 mt-0.5" />
+                    <div>
+                      <div className="font-medium text-blue-900">Import Guidelines</div>
+                      <ul className="text-sm text-blue-700 mt-1 space-y-1">
+                        <li>• Supported formats: JSON, YAML, ZIP backup files</li>
+                        <li>• Existing servers with same ID will be updated</li>
+                        <li>• New servers will be added to your configuration</li>
+                        <li>• Invalid configurations will be skipped with warnings</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+                
+                <Button 
+                  className="w-full" 
+                  disabled
+                  onClick={() => {
+                    // Placeholder for import functionality
+                    console.log('Import functionality will be implemented');
+                  }}
+                >
+                  <FileUp className="h-4 w-4 mr-2" />
+                  Import Configuration
+                </Button>
+              </TabsContent>
+            </Tabs>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
