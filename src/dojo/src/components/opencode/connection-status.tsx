@@ -36,45 +36,45 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ collapsed = 
       case 'connected':
         return {
           icon: CheckCircle,
-          color: 'text-green-500',
-          bgColor: 'bg-green-500/10',
-          borderColor: 'border-green-500/20',
+          color: 'text-success',
+          bgColor: 'bg-success/10',
+          borderColor: 'border-success/20',
           label: 'Connected',
           description: `OpenCode ${serverVersion || 'Unknown'}`
         };
       case 'connecting':
         return {
           icon: Loader2,
-          color: 'text-yellow-500',
-          bgColor: 'bg-yellow-500/10',
-          borderColor: 'border-yellow-500/20',
+          color: 'text-warning',
+          bgColor: 'bg-warning/10',
+          borderColor: 'border-warning/20',
           label: 'Connecting',
           description: 'Establishing connection...'
         };
       case 'disconnected':
         return {
           icon: WifiOff,
-          color: 'text-gray-500',
-          bgColor: 'bg-gray-500/10',
-          borderColor: 'border-gray-500/20',
+          color: 'text-muted-foreground',
+          bgColor: 'bg-muted/10',
+          borderColor: 'border-muted/20',
           label: 'Disconnected',
           description: 'Not connected to OpenCode server'
         };
       case 'error':
         return {
           icon: XCircle,
-          color: 'text-red-500',
-          bgColor: 'bg-red-500/10',
-          borderColor: 'border-red-500/20',
+          color: 'text-destructive',
+          bgColor: 'bg-destructive/10',
+          borderColor: 'border-destructive/20',
           label: 'Connection Error',
           description: connectionErrors[connectionErrors.length - 1] || 'Unknown error'
         };
       default:
         return {
           icon: AlertCircle,
-          color: 'text-gray-500',
-          bgColor: 'bg-gray-500/10',
-          borderColor: 'border-gray-500/20',
+          color: 'text-muted-foreground',
+          bgColor: 'bg-muted/10',
+          borderColor: 'border-muted/20',
           label: 'Unknown',
           description: 'Unknown connection status'
         };
@@ -143,9 +143,9 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ collapsed = 
               <p className="text-xs">{statusConfig.description}</p>
               {connectionErrors.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-red-500">Recent Errors:</p>
+                  <p className="text-xs font-medium text-destructive">Recent Errors:</p>
                   {connectionErrors.slice(-3).map((error, index) => (
-                    <p key={index} className="text-xs text-red-400">
+                    <p key={index} className="text-xs text-destructive/80">
                       {error}
                     </p>
                   ))}
@@ -184,10 +184,10 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ collapsed = 
           exit={{ opacity: 0, height: 0 }}
           className="space-y-1"
         >
-          <p className="text-xs font-medium text-red-500">Recent Errors:</p>
+          <p className="text-xs font-medium text-destructive">Recent Errors:</p>
           <div className="space-y-1 max-h-20 overflow-y-auto">
             {connectionErrors.slice(-3).map((error, index) => (
-              <p key={index} className="text-xs text-red-400 bg-red-500/10 p-1 rounded">
+              <p key={index} className="text-xs text-destructive/80 bg-destructive/10 p-1 rounded">
                 {error}
               </p>
             ))}

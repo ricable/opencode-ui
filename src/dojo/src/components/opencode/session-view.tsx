@@ -406,7 +406,7 @@ export const SessionView: React.FC<SessionViewProps> = ({ sessionId }) => {
                 <div className="flex items-center space-x-1">
                   <div className={cn(
                     "h-2 w-2 rounded-full",
-                    currentProvider?.health === 'healthy' ? 'bg-green-500' : 'bg-red-500'
+                    currentProvider?.status === 'online' ? 'bg-green-500' : 'bg-red-500'
                   )} />
                   <span>{session.provider}</span>
                 </div>
@@ -486,7 +486,7 @@ export const SessionView: React.FC<SessionViewProps> = ({ sessionId }) => {
                   <div className="text-4xl">👋</div>
                   <h3 className="text-lg font-medium">Start the conversation</h3>
                   <p className="text-muted-foreground max-w-md">
-                    Ask anything about your code, request changes, or describe what you'd like to build.
+                    Ask anything about your code, request changes, or describe what you&apos;d like to build.
                   </p>
                 </div>
               </div>

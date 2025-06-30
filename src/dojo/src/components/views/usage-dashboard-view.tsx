@@ -64,17 +64,7 @@ import {
   type CacheAnalytics,
   type UsageTimeframe
 } from "@/lib/analytics-utils";
-
-export type OpenCodeView = 
-  | "welcome" 
-  | "projects" 
-  | "providers" 
-  | "agents" 
-  | "settings" 
-  | "session" 
-  | "usage-dashboard" 
-  | "mcp"
-  | "tools";
+import { OpenCodeView } from "@/types/opencode";
 
 interface UsageDashboardViewProps {
   onViewChange: (view: OpenCodeView) => void;
@@ -212,7 +202,7 @@ export function UsageDashboardView({ onViewChange }: UsageDashboardViewProps) {
   // Calculate token breakdown from actual data
   const inputTokens = sessions.reduce((sum, s) => sum + (s.token_usage?.input_tokens || 0), 0);
   const outputTokens = sessions.reduce((sum, s) => sum + (s.token_usage?.output_tokens || 0), 0);
-  const cacheTokens = sessions.reduce((sum, s) => sum + (s.token_usage?.cache_tokens || 0), 0);
+  const cacheTokens = sessions.reduce((sum, s) => sum + ((s.token_usage as any)?.cache_tokens || 0), 0);
 
   return (
     <div className="flex-1 overflow-y-auto bg-background">

@@ -7,17 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useSessionStore, useActiveSession, useActiveSessionMessages } from "@/lib/session-store";
-
-export type OpenCodeView = 
-  | "welcome" 
-  | "projects" 
-  | "providers" 
-  | "agents" 
-  | "settings" 
-  | "session" 
-  | "usage-dashboard" 
-  | "mcp"
-  | "tools";
+import { OpenCodeView } from "@/types/opencode";
+import { safeToFixed } from "@/lib/utils";
 
 interface SessionViewProps {
   sessionId: string;
@@ -102,7 +93,7 @@ export function SessionView({ sessionId, onViewChange }: SessionViewProps) {
           {session && (
             <div className="flex items-center space-x-4 text-sm text-muted-foreground">
               <span>{messages.length} messages</span>
-              <span>${session.total_cost.toFixed(4)} spent</span>
+              <span>${safeToFixed(session.total_cost, 4)} spent</span>
             </div>
           )}
         </div>
@@ -158,9 +149,9 @@ export function SessionView({ sessionId, onViewChange }: SessionViewProps) {
                         <span className="text-xs text-muted-foreground">
                           {formatTimestamp(message.timestamp)}
                         </span>
-                        {message.cost && (
+                        {message.cost != null && (
                           <span className="text-xs text-muted-foreground">
-                            ${message.cost.toFixed(4)}
+                            ${safeToFixed(message.cost, 4)}
                           </span>
                         )}
                       </div>

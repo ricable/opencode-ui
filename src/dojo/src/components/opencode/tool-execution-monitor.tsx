@@ -127,6 +127,104 @@ interface ExecutionMetrics {
   approvalsPending: number;
 }
 
+const getStatusIcon = (status: ToolExecution['status']) => {
+  switch (status) {
+    case 'pending':
+      return <Clock className="h-4 w-4 text-yellow-500" />;
+    case 'running':
+      return <Play className="h-4 w-4 text-blue-500 animate-pulse" />;
+    case 'completed':
+      return <CheckCircle className="h-4 w-4 text-green-500" />;
+    case 'failed':
+      return <XCircle className="h-4 w-4 text-red-500" />;
+    case 'cancelled':
+      return <Square className="h-4 w-4 text-gray-500" />;
+    case 'timeout':
+      return <AlertTriangle className="h-4 w-4 text-orange-500" />;
+    default:
+      return <AlertCircleIcon className="h-4 w-4 text-gray-500" />;
+  }
+};
+
+const getStatusColor = (status: ToolExecution['status']) => {
+  switch (status) {
+    case 'pending':
+      return 'border-yellow-500 text-yellow-700 bg-yellow-50';
+    case 'running':
+      return 'border-blue-500 text-blue-700 bg-blue-50';
+    case 'completed':
+      return 'border-green-500 text-green-700 bg-green-50';
+    case 'failed':
+      return 'border-red-500 text-red-700 bg-red-50';
+    case 'cancelled':
+      return 'border-gray-500 text-gray-700 bg-gray-50';
+    case 'timeout':
+      return 'border-orange-500 text-orange-700 bg-orange-50';
+    default:
+      return 'border-gray-500 text-gray-700 bg-gray-50';
+  }
+};
+
+const getPriorityColor = (priority: ToolExecution['priority']) => {
+  switch (priority) {
+    case 'low':
+      return 'text-green-600 bg-green-50 border-green-200';
+    case 'medium':
+      return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+    case 'high':
+      return 'text-orange-600 bg-orange-50 border-orange-200';
+    case 'critical':
+      return 'text-red-600 bg-red-50 border-red-200';
+    default:
+      return 'text-gray-600 bg-gray-50 border-gray-200';
+  }
+};
+
+const getRiskColor = (level: string) => {
+  switch (level) {
+    case 'low':
+      return 'text-green-600 bg-green-50 border-green-200';
+    case 'medium':
+      return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+    case 'high':
+      return 'text-orange-600 bg-orange-50 border-orange-200';
+    case 'critical':
+      return 'text-red-600 bg-red-50 border-red-200';
+    default:
+      return 'text-gray-600 bg-gray-50 border-gray-200';
+  }
+};
+
+const getCategoryIcon = (category: string) => {
+  switch (category) {
+    case 'file':
+      return <FileText className="h-4 w-4" />;
+    case 'system':
+      return <Terminal className="h-4 w-4" />;
+    case 'network':
+      return <Globe className="h-4 w-4" />;
+    case 'development':
+      return <Code className="h-4 w-4" />;
+    case 'ai':
+      return <Zap className="h-4 w-4" />;
+    case 'mcp':
+      return <Package className="h-4 w-4" />;
+    default:
+      return <Activity className="h-4 w-4" />;
+  }
+};
+
+const formatDuration = (ms?: number) => {
+  if (!ms) return 'N/A';
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${(ms / 60000).toFixed(1)}m`;
+};
+
+const formatTimestamp = (timestamp: number) => {
+  return new Date(timestamp).toLocaleString();
+};
+
 export const ToolExecutionMonitor: React.FC = () => {
   const { actions } = useSessionStore();
   
@@ -373,103 +471,8 @@ export const ToolExecutionMonitor: React.FC = () => {
     return filtered;
   }, [executions, filters, searchQuery, sortBy, sortOrder]);
 
-  const getStatusIcon = (status: ToolExecution['status']) => {
-    switch (status) {
-      case 'pending':
-        return <Clock className="h-4 w-4 text-yellow-500" />;
-      case 'running':
-        return <Play className="h-4 w-4 text-blue-500 animate-pulse" />;
-      case 'completed':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'failed':
-        return <XCircle className="h-4 w-4 text-red-500" />;
-      case 'cancelled':
-        return <Square className="h-4 w-4 text-gray-500" />;
-      case 'timeout':
-        return <AlertTriangle className="h-4 w-4 text-orange-500" />;
-      default:
-        return <AlertCircleIcon className="h-4 w-4 text-gray-500" />;
-    }
-  };
 
-  const getStatusColor = (status: ToolExecution['status']) => {
-    switch (status) {
-      case 'pending':
-        return 'border-yellow-500 text-yellow-700 bg-yellow-50';
-      case 'running':
-        return 'border-blue-500 text-blue-700 bg-blue-50';
-      case 'completed':
-        return 'border-green-500 text-green-700 bg-green-50';
-      case 'failed':
-        return 'border-red-500 text-red-700 bg-red-50';
-      case 'cancelled':
-        return 'border-gray-500 text-gray-700 bg-gray-50';
-      case 'timeout':
-        return 'border-orange-500 text-orange-700 bg-orange-50';
-      default:
-        return 'border-gray-500 text-gray-700 bg-gray-50';
-    }
-  };
 
-  const getPriorityColor = (priority: ToolExecution['priority']) => {
-    switch (priority) {
-      case 'low':
-        return 'text-green-600 bg-green-50 border-green-200';
-      case 'medium':
-        return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      case 'high':
-        return 'text-orange-600 bg-orange-50 border-orange-200';
-      case 'critical':
-        return 'text-red-600 bg-red-50 border-red-200';
-      default:
-        return 'text-gray-600 bg-gray-50 border-gray-200';
-    }
-  };
-
-  const getRiskColor = (level: string) => {
-    switch (level) {
-      case 'low':
-        return 'text-green-600 bg-green-50 border-green-200';
-      case 'medium':
-        return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      case 'high':
-        return 'text-orange-600 bg-orange-50 border-orange-200';
-      case 'critical':
-        return 'text-red-600 bg-red-50 border-red-200';
-      default:
-        return 'text-gray-600 bg-gray-50 border-gray-200';
-    }
-  };
-
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'file':
-        return <FileText className="h-4 w-4" />;
-      case 'system':
-        return <Terminal className="h-4 w-4" />;
-      case 'network':
-        return <Globe className="h-4 w-4" />;
-      case 'development':
-        return <Code className="h-4 w-4" />;
-      case 'ai':
-        return <Zap className="h-4 w-4" />;
-      case 'mcp':
-        return <Package className="h-4 w-4" />;
-      default:
-        return <Activity className="h-4 w-4" />;
-    }
-  };
-
-  const formatDuration = (ms?: number) => {
-    if (!ms) return 'N/A';
-    if (ms < 1000) return `${ms}ms`;
-    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-    return `${(ms / 60000).toFixed(1)}m`;
-  };
-
-  const formatTimestamp = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString();
-  };
 
   const handleExecutionAction = (action: string, executionId: string) => {
     switch (action) {

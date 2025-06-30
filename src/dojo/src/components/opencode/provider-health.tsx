@@ -42,7 +42,7 @@ interface HealthMetric {
 
 interface RegionStatus {
   region: string;
-  status: 'online' | 'offline' | 'degraded';
+  status: 'online' | 'offline' | 'error';
   response_time: number;
   uptime: number;
 }
@@ -116,28 +116,28 @@ export const ProviderHealth: React.FC = () => {
     
     switch (status) {
       case 'online':
-        return <CheckCircle className={cn(sizeClass, 'text-green-500')} />;
-      case 'degraded':
-        return <AlertTriangle className={cn(sizeClass, 'text-yellow-500')} />;
+        return <CheckCircle className={cn(sizeClass, 'text-success')} />;
+      case 'error':
+        return <AlertTriangle className={cn(sizeClass, 'text-warning')} />;
       case 'offline':
       case 'error':
-        return <AlertCircle className={cn(sizeClass, 'text-red-500')} />;
+        return <AlertCircle className={cn(sizeClass, 'text-destructive')} />;
       default:
-        return <Minus className={cn(sizeClass, 'text-gray-500')} />;
+        return <Minus className={cn(sizeClass, 'text-muted-foreground')} />;
     }
   };
 
   const getUptimeColor = (uptime: number) => {
-    if (uptime >= 99.9) return 'text-green-600';
-    if (uptime >= 99.0) return 'text-yellow-600';
-    return 'text-red-600';
+    if (uptime >= 99.9) return 'text-success';
+    if (uptime >= 99.0) return 'text-warning';
+    return 'text-destructive';
   };
 
   const getResponseTimeColor = (current: number, baseline: number) => {
     const ratio = current / baseline;
-    if (ratio <= 1.2) return 'text-green-600';
-    if (ratio <= 1.5) return 'text-yellow-600';
-    return 'text-red-600';
+    if (ratio <= 1.2) return 'text-success';
+    if (ratio <= 1.5) return 'text-warning';
+    return 'text-destructive';
   };
 
   const formatUptime = (uptime: number) => `${uptime.toFixed(2)}%`;
@@ -153,8 +153,8 @@ export const ProviderHealth: React.FC = () => {
       <div className="flex items-end space-x-1 h-16">
         {metrics.map((metric, index) => {
           const height = (metric.value / maxValue) * 100;
-          const color = metric.status === 'good' ? 'bg-green-500' : 
-                       metric.status === 'warning' ? 'bg-yellow-500' : 'bg-red-500';
+          const color = metric.status === 'good' ? 'bg-success' : 
+                       metric.status === 'warning' ? 'bg-warning' : 'bg-destructive';
           
           return (
             <motion.div
@@ -184,7 +184,7 @@ export const ProviderHealth: React.FC = () => {
           const baseHealth = providerHealth.find(h => h.provider_id === providerId);
           const regionHealth: RegionStatus = {
             region,
-            status: Math.random() > 0.1 ? 'online' : Math.random() > 0.5 ? 'degraded' : 'offline',
+            status: Math.random() > 0.1 ? 'online' : Math.random() > 0.5 ? 'error' : 'offline',
             response_time: (baseHealth?.response_time || 1000) + (Math.random() - 0.5) * 200,
             uptime: 99.0 + Math.random() * 1.0
           };
@@ -224,7 +224,7 @@ export const ProviderHealth: React.FC = () => {
 
   const overallStatus = {
     online: providerHealth.filter(h => h.status === 'online').length,
-    degraded: providerHealth.filter(h => h.status === 'degraded').length,
+    error: providerHealth.filter(h => h.status === 'error').length,
     offline: providerHealth.filter(h => h.status === 'offline').length,
     total: providerHealth.length
   };
@@ -254,7 +254,7 @@ export const ProviderHealth: React.FC = () => {
             variant="outline"
             size="sm"
             onClick={() => setAutoRefresh(!autoRefresh)}
-            className={autoRefresh ? 'bg-green-50 text-green-700 border-green-200' : ''}
+            className={autoRefresh ? 'bg-success/10 text-success border-success/20' : ''}
           >
             <RefreshCw className={cn('h-4 w-4 mr-2', autoRefresh && 'animate-spin')} />
             {autoRefresh ? 'Auto-refresh ON' : 'Auto-refresh OFF'}
@@ -285,7 +285,7 @@ export const ProviderHealth: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-yellow-700 dark:text-yellow-300">Degraded</p>
-                <p className="text-2xl font-bold text-yellow-900 dark:text-yellow-100">{overallStatus.degraded}</p>
+                <p className="text-2xl font-bold text-yellow-900 dark:text-yellow-100">{overallStatus.error}</p>
               </div>
               <AlertTriangle className="h-8 w-8 text-yellow-500" />
             </div>

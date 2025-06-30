@@ -227,7 +227,7 @@ export const useSessionStore = create<AppState>()(
             });
             
             // Enhanced event listeners
-            openCodeClient.on('session_update', (data) => {
+            openCodeClient.on('session_update', (data: any) => {
               const { sessionId, update } = data;
               set((state) => {
                 const messages = state.sessionMessages[sessionId] || [];
@@ -244,7 +244,7 @@ export const useSessionStore = create<AppState>()(
               });
             });
             
-            openCodeClient.on('provider_update', (data) => {
+            openCodeClient.on('provider_update', (data: any) => {
               set((state) => ({
                 providerHealth: state.providerHealth.map(p => 
                   p.provider_id === data.providerId ? { ...p, ...data.data } : p
@@ -253,7 +253,7 @@ export const useSessionStore = create<AppState>()(
               }));
             });
             
-            openCodeClient.on('tool_execution_logged', (data) => {
+            openCodeClient.on('tool_execution_logged', (data: any) => {
               set((state) => ({
                 toolAuditLog: [{
                   tool_id: data.tool_id,
@@ -265,16 +265,23 @@ export const useSessionStore = create<AppState>()(
               }));
             });
             
-            openCodeClient.on('tool_approval_required', (data) => {
+            openCodeClient.on('tool_approval_required', (data: any) => {
               // Handle tool approval UI prompts
               console.log('Tool approval required:', data);
               // In a real implementation, this would trigger a UI modal
             });
             
-            openCodeClient.on('websocket_error', (data) => {
+            openCodeClient.on('websocket_error', (data: any) => {
               console.error('WebSocket error:', data);
               set((state) => ({
                 connectionErrors: [...state.connectionErrors, `WebSocket error for ${data.sessionId}`]
+              }));
+            });
+
+            openCodeClient.on('websocket_reconnect_failed', (data: any) => {
+              console.warn('WebSocket reconnection failed:', data);
+              set((state) => ({
+                connectionErrors: [...state.connectionErrors, `Failed to reconnect to session ${data.sessionId}`]
               }));
             });
             
@@ -282,8 +289,10 @@ export const useSessionStore = create<AppState>()(
             try {
               await Promise.allSettled([
                 get().actions.loadSessions(),
-                get().actions.loadProviders(),
-                get().actions.loadTools(),
+                // Skip provider loading until endpoint is available
+                // get().actions.loadProviders(),
+                // Skip tool loading until endpoint is available  
+                // get().actions.loadTools(),
                 get().actions.loadConfig()
               ]);
             } catch (error) {
@@ -326,10 +335,15 @@ export const useSessionStore = create<AppState>()(
           set({ isLoadingSessions: true });
           try {
             const sessions = await openCodeClient.getSessions();
-            set({ sessions, isLoadingSessions: false });
+            set({ sessions, isLoadingSessions: false, serverStatus: 'connected' });
           } catch (error) {
             console.error('Failed to load sessions:', error);
-            set({ isLoadingSessions: false });
+            set({ 
+              isLoadingSessions: false, 
+              serverStatus: 'error',
+              sessions: [], // Clear sessions when server is not available
+              connectionErrors: [...get().connectionErrors, error instanceof Error ? error.message : 'Failed to load sessions']
+            });
           }
         },
 
@@ -459,7 +473,11 @@ export const useSessionStore = create<AppState>()(
             console.error('Failed to load providers:', error);
             set({ 
               isLoadingProviders: false,
-              connectionErrors: [...get().connectionErrors, 'Failed to load providers']
+              serverStatus: 'error',
+              providers: [], // Clear providers when server is not available
+              providerHealth: [],
+              providerMetrics: [],
+              connectionErrors: [...get().connectionErrors, error instanceof Error ? error.message : 'Failed to load providers']
             });
           }
         },
@@ -532,7 +550,11 @@ export const useSessionStore = create<AppState>()(
             console.error('Failed to load tools:', error);
             set({ 
               isLoadingTools: false,
-              connectionErrors: [...get().connectionErrors, 'Failed to load tools']
+              serverStatus: 'error',
+              availableTools: [], // Clear tools when server is not available
+              toolExecutions: [],
+              pendingApprovals: [],
+              connectionErrors: [...get().connectionErrors, error instanceof Error ? error.message : 'Failed to load tools']
             });
           }
         },
@@ -573,7 +595,7 @@ export const useSessionStore = create<AppState>()(
             set((state) => ({
               pendingApprovals: state.pendingApprovals.filter(e => e.id !== executionId),
               toolExecutions: state.toolExecutions.map(e => 
-                e.id === executionId ? { ...e, status: 'approved' as const } : e
+                e.id === executionId ? { ...e, status: 'completed' as const } : e
               )
             }));
           } catch (error) {
@@ -588,7 +610,7 @@ export const useSessionStore = create<AppState>()(
             set((state) => ({
               pendingApprovals: state.pendingApprovals.filter(e => e.id !== executionId),
               toolExecutions: state.toolExecutions.map(e => 
-                e.id === executionId ? { ...e, status: 'cancelled' as const } : e
+                e.id === executionId ? { ...e, status: 'failed' as const } : e
               )
             }));
           } catch (error) {
@@ -613,9 +635,14 @@ export const useSessionStore = create<AppState>()(
         loadConfig: async () => {
           try {
             const config = await openCodeClient.getConfig();
-            set({ config });
+            set({ config, serverStatus: 'connected' });
           } catch (error) {
             console.error('Failed to load config:', error);
+            set({ 
+              config: null, // Clear config when server is not available
+              serverStatus: 'error',
+              connectionErrors: [...get().connectionErrors, error instanceof Error ? error.message : 'Failed to load config']
+            });
           }
         },
 
@@ -700,7 +727,7 @@ export const useActiveSessionMessages = () => {
   return activeSessionId ? sessionMessages[activeSessionId] || [] : [];
 };
 
-export const useProviderByStatus = (status: 'healthy' | 'degraded' | 'unhealthy') => {
+export const useProviderByStatus = (status: 'online' | 'offline' | 'error') => {
   const { providers, providerHealth } = useSessionStore();
   const healthMap = new Map(providerHealth.map(h => [h.provider_id, h.status]));
   return providers.filter(p => healthMap.get(p.id) === status);

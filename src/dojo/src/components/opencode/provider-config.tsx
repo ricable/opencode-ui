@@ -483,7 +483,7 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ providerId, open
                       <Zap className="h-5 w-5" />
                       <span>Available Models</span>
                     </div>
-                    {providerConfig.customModels && (
+                    {(providerConfig as any).customModels && (
                       <Button variant="outline" size="sm">
                         <Upload className="h-4 w-4 mr-2" />
                         Add Custom Model
@@ -492,7 +492,7 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ providerId, open
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {providerConfig.type === 'local' && (
+                  {(providerConfig as any).type === 'local' && (
                     <div className="mb-6 p-4 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
                       <div className="flex items-start space-x-3">
                         <Zap className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
@@ -518,9 +518,9 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ providerId, open
                             <Switch defaultChecked />
                           </div>
                           <div className="text-sm text-muted-foreground space-y-1">
-                            <div>Type: {providerConfig.type === 'local' ? 'Local' : 'Cloud'}</div>
-                            <div>Cost: {providerConfig.type === 'local' ? 'Free' : formatCurrency(provider.cost_per_1k_tokens)}/1K tokens</div>
-                            <div>Expected latency: {providerConfig.type === 'local' ? '2-5s' : `${provider.avg_response_time}ms`}</div>
+                            <div>Type: {(providerConfig as any).type === 'local' ? 'Local' : 'Cloud'}</div>
+                            <div>Cost: {(providerConfig as any).type === 'local' ? 'Free' : formatCurrency(provider.cost_per_1k_tokens)}/1K tokens</div>
+                            <div>Expected latency: {(providerConfig as any).type === 'local' ? '2-5s' : `${provider.avg_response_time}ms`}</div>
                           </div>
                         </div>
                       ))
@@ -529,12 +529,12 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ providerId, open
                         <Zap className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                         <h3 className="text-lg font-medium mb-2">No Models Available</h3>
                         <p className="text-muted-foreground mb-4">
-                          {providerConfig.type === 'local' 
+                          {(providerConfig as any).type === 'local' 
                             ? 'No local models found. Install models using the provider\'s tools.'
                             : 'No models configured for this provider.'
                           }
                         </p>
-                        {providerConfig.customModels && (
+                        {(providerConfig as any).customModels && (
                           <Button variant="outline">
                             <Upload className="h-4 w-4 mr-2" />
                             Add Your First Model
@@ -544,7 +544,7 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ providerId, open
                     )}
                   </div>
                   
-                  {providerConfig.customModels && (
+                  {(providerConfig as any).customModels && (
                     <div className="mt-6 p-4 rounded-lg border bg-muted/50">
                       <h4 className="font-medium mb-3">Add Custom Model</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -554,7 +554,7 @@ export const ProviderConfig: React.FC<ProviderConfigProps> = ({ providerId, open
                         </div>
                         <div>
                           <Label>Model Path/ID</Label>
-                          <Input placeholder={providerConfig.type === 'local' ? '/path/to/model.gguf' : 'model-identifier'} />
+                          <Input placeholder={(providerConfig as any).type === 'local' ? '/path/to/model.gguf' : 'model-identifier'} />
                         </div>
                       </div>
                       <div className="flex items-center justify-end mt-4">

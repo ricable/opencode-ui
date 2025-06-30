@@ -78,4 +78,4 @@ export type {
 } from '../types/opencode';
 
 // Utility functions
-export { default as utils } from './utils';
+export * as utils from './utils';

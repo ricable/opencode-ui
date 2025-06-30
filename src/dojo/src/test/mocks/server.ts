@@ -36,18 +36,18 @@ export const handlers = [
   }),
 
   http.post('/api/providers/auth', async ({ request }) => {
-    const credentials = await request.json()
+    const credentials = await request.json() as any as any
     
     return HttpResponse.json({
       success: true,
-      provider_id: credentials.providerId,
+      provider_id: credentials?.providerId || 'unknown',
       authenticated: true
     })
   }),
 
   http.post('/api/providers/:providerId/auth', async ({ params, request }) => {
     const { providerId } = params
-    const credentials = await request.json()
+    const credentials = await request.json() as any
     
     return HttpResponse.json({
       success: true,
@@ -74,7 +74,7 @@ export const handlers = [
   }),
 
   http.post('/api/sessions', async ({ request }) => {
-    const config = await request.json()
+    const config = await request.json() as any
     const newSession = {
       id: `session-${Date.now()}`,
       name: config.name || 'New Session',
@@ -114,7 +114,7 @@ export const handlers = [
 
   http.post('/api/sessions/:sessionId/message', async ({ params, request }) => {
     const { sessionId } = params
-    const { content } = await request.json()
+    const { content } = await request.json() as any
     
     return HttpResponse.json({
       messageId: `msg-${Date.now()}`,
@@ -125,7 +125,7 @@ export const handlers = [
 
   http.post('/api/sessions/:sessionId/messages', async ({ params, request }) => {
     const { sessionId } = params
-    const { content } = await request.json()
+    const { content } = await request.json() as any
     
     return HttpResponse.json({
       messageId: `msg-${Date.now()}`,
@@ -151,7 +151,7 @@ export const handlers = [
 
   http.post('/api/tools/:toolId/execute', async ({ params, request }) => {
     const { toolId } = params
-    const input = await request.json()
+    const input = await request.json() as any
     
     return HttpResponse.json({
       success: true,
@@ -194,12 +194,12 @@ export const handlers = [
   }),
 
   http.post('/api/config', async ({ request }) => {
-    const config = await request.json()
+    const config = await request.json() as any
     return HttpResponse.json({ success: true })
   }),
 
   http.post('/api/config/validate', async ({ request }) => {
-    const config = await request.json()
+    const config = await request.json() as any
     return HttpResponse.json({
       valid: true,
       errors: [],

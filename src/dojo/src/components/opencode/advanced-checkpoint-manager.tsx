@@ -63,7 +63,9 @@ import {
   CheckpointSearchFilters, 
   CheckpointExportFormat,
   CheckpointForkOptions,
-  TimelineNode 
+  TimelineNode,
+  DiffLine,
+  CheckpointMetadata
 } from '@/types/opencode';
 import { CheckpointDiffViewer } from './checkpoint-diff-viewer';
 import { CheckpointForkManager } from './checkpoint-fork-manager';

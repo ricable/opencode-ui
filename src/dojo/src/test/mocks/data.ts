@@ -68,10 +68,14 @@ export const mockSessions: Session[] = [
     status: 'active',
     message_count: 12,
     total_cost: 0.45,
+    project_path: '/tmp/session-1',
     config: {
+      project_path: '/tmp/session-1',
+      provider: 'anthropic',
+      model: 'claude-3-5-sonnet-20241022',
       max_tokens: 8000,
       temperature: 0.7,
-      tools: ['file_edit', 'bash', 'browser']
+      enabled_tools: ['file_edit', 'bash', 'browser']
     }
   },
   {
@@ -84,10 +88,14 @@ export const mockSessions: Session[] = [
     status: 'completed',
     message_count: 8,
     total_cost: 0.23,
+    project_path: '/tmp/session-2',
     config: {
+      project_path: '/tmp/session-2',
+      provider: 'openai',
+      model: 'gpt-4o',
       max_tokens: 4000,
       temperature: 0.5,
-      tools: ['file_edit', 'fetch']
+      enabled_tools: ['file_edit', 'fetch']
     }
   },
   {
@@ -97,13 +105,17 @@ export const mockSessions: Session[] = [
     model: 'claude-3-opus-20240229',
     created_at: Date.now() - 86400000, // 1 day ago
     updated_at: Date.now() - 43200000, // 12 hours ago
-    status: 'archived',
+    status: 'completed',
     message_count: 25,
     total_cost: 1.89,
+    project_path: '/tmp/session-3',
     config: {
+      project_path: '/tmp/session-3',
+      provider: 'anthropic',
+      model: 'claude-3-opus-20240229',
       max_tokens: 8000,
       temperature: 0.3,
-      tools: ['file_edit', 'bash', 'database']
+      enabled_tools: ['file_edit', 'bash', 'database']
     }
   }
 ]
@@ -113,21 +125,26 @@ export const mockMessages: Record<string, Message[]> = {
     {
       id: 'msg-1',
       role: 'user',
+      type: 'user',
       content: 'Help me create a React component for displaying user profiles.',
       timestamp: Date.now() - 3600000,
-      session_id: 'session-1'
+      session_id: 'session-1',
+      provider: 'anthropic',
+      model: 'claude-3-5-sonnet-20241022'
     },
     {
       id: 'msg-2',
       role: 'assistant',
+      type: 'assistant',
       content: 'I\'ll help you create a React component for displaying user profiles. Let me start by creating a basic component structure.',
       timestamp: Date.now() - 3500000,
       session_id: 'session-1',
+      provider: 'anthropic',
+      model: 'claude-3-5-sonnet-20241022',
       tool_calls: [
         {
-          id: 'call-1',
-          type: 'file_edit',
-          params: {
+          name: 'file_edit',
+          input: {
             file: 'components/UserProfile.tsx',
             content: 'import React from "react";\n\ninterface UserProfileProps {\n  user: {\n    id: string;\n    name: string;\n    email: string;\n    avatar?: string;\n  };\n}\n\nexport const UserProfile: React.FC<UserProfileProps> = ({ user }) => {\n  return (\n    <div className="user-profile">\n      <h2>{user.name}</h2>\n      <p>{user.email}</p>\n    </div>\n  );\n};'
           }
@@ -137,25 +154,34 @@ export const mockMessages: Record<string, Message[]> = {
     {
       id: 'msg-3',
       role: 'user',
+      type: 'user',
       content: 'Great! Can you add styling and make it more visually appealing?',
       timestamp: Date.now() - 3000000,
-      session_id: 'session-1'
+      session_id: 'session-1',
+      provider: 'anthropic',
+      model: 'claude-3-5-sonnet-20241022'
     }
   ],
   'session-2': [
     {
       id: 'msg-4',
       role: 'user',
+      type: 'user',
       content: 'I need to integrate with a REST API. Can you help me set up the client?',
       timestamp: Date.now() - 7200000,
-      session_id: 'session-2'
+      session_id: 'session-2',
+      provider: 'openai',
+      model: 'gpt-4o'
     },
     {
       id: 'msg-5',
       role: 'assistant',
+      type: 'assistant',
       content: 'I\'ll help you create a robust API client. Let me set up a basic structure with error handling and TypeScript types.',
       timestamp: Date.now() - 7100000,
-      session_id: 'session-2'
+      session_id: 'session-2',
+      provider: 'openai',
+      model: 'gpt-4o'
     }
   ]
 }
@@ -165,62 +191,74 @@ export const mockTools: Tool[] = [
     id: 'file_edit',
     name: 'File Editor',
     description: 'Create, read, and edit files in the project',
-    category: 'file_operations',
-    parameters: {
-      type: 'object',
-      properties: {
-        file: { type: 'string', description: 'File path to edit' },
-        content: { type: 'string', description: 'New file content' },
-        mode: { type: 'string', enum: ['create', 'update', 'append'] }
+    category: 'file',
+    enabled: true,
+    config: {
+      parameters: {
+        type: 'object',
+        properties: {
+          file: { type: 'string', description: 'File path to edit' },
+          content: { type: 'string', description: 'New file content' },
+          mode: { type: 'string', enum: ['create', 'update', 'append'] }
+        },
+        required: ['file', 'content']
       },
-      required: ['file', 'content']
-    },
-    approval_required: false
+      approval_required: false
+    }
   },
   {
     id: 'bash',
     name: 'Shell Command',
     description: 'Execute shell commands in the project directory',
     category: 'system',
-    parameters: {
-      type: 'object',
-      properties: {
-        command: { type: 'string', description: 'Shell command to execute' },
-        timeout: { type: 'number', description: 'Timeout in seconds' }
+    enabled: true,
+    config: {
+      parameters: {
+        type: 'object',
+        properties: {
+          command: { type: 'string', description: 'Shell command to execute' },
+          timeout: { type: 'number', description: 'Timeout in seconds' }
+        },
+        required: ['command']
       },
-      required: ['command']
-    },
-    approval_required: true
+      approval_required: true
+    }
   },
   {
     id: 'browser',
     name: 'Web Browser',
     description: 'Browse the web and fetch content from URLs',
-    category: 'web',
-    parameters: {
-      type: 'object',
-      properties: {
-        url: { type: 'string', description: 'URL to fetch' },
-        action: { type: 'string', enum: ['fetch', 'screenshot', 'search'] }
+    category: 'custom',
+    enabled: true,
+    config: {
+      parameters: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'URL to fetch' },
+          action: { type: 'string', enum: ['fetch', 'screenshot', 'search'] }
+        },
+        required: ['url']
       },
-      required: ['url']
-    },
-    approval_required: false
+      approval_required: false
+    }
   },
   {
     id: 'database',
     name: 'Database Query',
     description: 'Execute database queries and manage schemas',
-    category: 'database',
-    parameters: {
-      type: 'object',
-      properties: {
-        query: { type: 'string', description: 'SQL query to execute' },
-        database: { type: 'string', description: 'Database name' }
+    category: 'custom',
+    enabled: true,
+    config: {
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'SQL query to execute' },
+          database: { type: 'string', description: 'Database name' }
+        },
+        required: ['query']
       },
-      required: ['query']
-    },
-    approval_required: true
+      approval_required: true
+    }
   }
 ]
 
@@ -231,38 +269,36 @@ export const mockConfig: OpenCodeConfig = {
   autoupdate: true,
   providers: {
     anthropic: {
-      api_key: '***hidden***',
-      base_url: 'https://api.anthropic.com'
+      apiKey: '***hidden***',
+      customEndpoint: 'https://api.anthropic.com'
     },
     openai: {
-      api_key: '***hidden***',
-      base_url: 'https://api.openai.com'
+      apiKey: '***hidden***',
+      customEndpoint: 'https://api.openai.com'
     }
   },
   agents: {
     'code-reviewer': {
-      name: 'Code Reviewer',
-      description: 'Reviews code for best practices and bugs',
-      prompt: 'You are a senior code reviewer...',
-      tools: ['file_edit', 'bash']
+      model: 'anthropic/claude-3-5-sonnet-20241022',
+      maxTokens: 4000,
+      systemPrompt: 'You are a senior code reviewer. Analyze code for best practices, security issues, and performance optimizations.'
     }
   },
   mcp: {
-    servers: {
-      'filesystem': {
-        command: 'npx',
-        args: ['@modelcontextprotocol/server-filesystem', '/tmp'],
-        env: {}
-      }
+    'filesystem': {
+      id: 'filesystem',
+      name: 'Filesystem Server',
+      type: 'stdio',
+      command: 'npx',
+      args: ['@modelcontextprotocol/server-filesystem', '/tmp'],
+      env: {},
+      status: 'connected'
     }
   },
   lsp: {
-    servers: {
-      'typescript': {
-        command: 'typescript-language-server',
-        args: ['--stdio'],
-        filetypes: ['typescript', 'javascript']
-      }
+    'typescript': {
+      command: 'typescript-language-server',
+      args: ['--stdio']
     }
   },
   keybinds: {
@@ -365,7 +401,7 @@ export const mockSessionTemplates = [
     provider: 'anthropic',
     model: 'claude-3-5-sonnet-20241022',
     initial_prompt: 'I need help building a React application. Please ask me about the requirements and help me plan the architecture.',
-    tools: ['file_edit', 'bash', 'browser'],
+    enabled_tools: ['file_edit', 'bash', 'browser'],
     configuration: {
       max_tokens: 8000,
       temperature: 0.7
@@ -378,7 +414,7 @@ export const mockSessionTemplates = [
     provider: 'openai',
     model: 'gpt-4o',
     initial_prompt: 'Please review my code for best practices, potential bugs, and optimization opportunities.',
-    tools: ['file_edit'],
+    enabled_tools: ['file_edit'],
     configuration: {
       max_tokens: 4000,
       temperature: 0.3
@@ -391,7 +427,7 @@ export const mockSessionTemplates = [
     provider: 'anthropic',
     model: 'claude-3-5-sonnet-20241022',
     initial_prompt: 'Help me integrate with external APIs, handle authentication, and manage data flow.',
-    tools: ['file_edit', 'browser', 'fetch'],
+    enabled_tools: ['file_edit', 'browser', 'fetch'],
     configuration: {
       max_tokens: 6000,
       temperature: 0.5

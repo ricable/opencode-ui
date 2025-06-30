@@ -194,7 +194,7 @@ export function MCPView({ onViewChange }: MCPViewProps) {
       last_accessed: Date.now() - Math.random() * 86400000,
       access_count: Math.floor(Math.random() * 50)
     }))
-  }));
+  })) as MCPServerWithStatus[];
 
   useEffect(() => {
     setServers(mockEnhancedServers);

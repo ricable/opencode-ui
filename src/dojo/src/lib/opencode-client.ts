@@ -351,11 +351,8 @@ export class OpenCodeClient {
   private connectionHealthTimer?: NodeJS.Timeout;
   private lastHeartbeat: number = Date.now();
   private heartbeatInterval: number = 30000; // 30 seconds
-  private mockMode: boolean = false;
-  private mockSessions: Map<string, Session> = new Map();
-  private mockMessages: Map<string, Message[]> = new Map();
 
-  constructor(baseURL: string = "http://localhost:8080") {
+  constructor(baseURL: string = "/api/opencode") {
     this.baseURL = baseURL;
     this.setupEventHandlers();
     this.checkServerAvailability();
@@ -363,21 +360,22 @@ export class OpenCodeClient {
 
   private async checkServerAvailability(): Promise<void> {
     try {
+      console.log(`Checking OpenCode server at ${this.baseURL}/app`);
       const response = await fetch(`${this.baseURL}/app`, { 
         method: 'GET',
         signal: AbortSignal.timeout(5000) // 5 second timeout
       });
-      this.mockMode = !response.ok;
+      console.log(`Server response status: ${response.status}`);
       if (response.ok) {
         this.handleConnectionStatusChange('connected');
         console.log('OpenCode server detected, using live API');
       } else {
-        console.log('OpenCode server not responding, using mock mode');
+        this.handleConnectionStatusChange('disconnected');
+        console.log('OpenCode server not responding');
       }
     } catch (error) {
-      this.mockMode = true;
       this.handleConnectionStatusChange('disconnected');
-      console.log('OpenCode server not available, using mock mode');
+      console.log('OpenCode server availability check failed:', error);
     }
   }
 
@@ -420,12 +418,7 @@ export class OpenCodeClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    // Use mock mode if server is not available
-    if (this.mockMode) {
-      return this.handleMockRequest<T>(endpoint, options);
-    }
-
-    const url = `${this.baseURL}/api${endpoint}`;
+    const url = `${this.baseURL}${endpoint}`;
     try {
       const response = await fetch(url, {
         headers: {
@@ -445,377 +438,24 @@ export class OpenCodeClient {
 
       return response.json();
     } catch (error) {
-      // Fallback to mock mode if request fails
-      console.log(`API request failed, falling back to mock mode: ${endpoint}`);
-      this.mockMode = true;
-      return this.handleMockRequest<T>(endpoint, options);
-    }
-  }
-
-  private async handleMockRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 300));
-
-    const method = options.method || 'GET';
-    const body = options.body ? JSON.parse(options.body as string) : null;
-
-    // Handle different endpoints matching OpenCode API
-    if (endpoint === '/session' && method === 'POST') {
-      return this.createMockSession(body) as T;
-    }
-    if (endpoint.startsWith('/session/') && method === 'GET') {
-      const sessionId = endpoint.split('/')[2];
-      return this.getMockSession(sessionId) as T;
-    }
-    if (endpoint === '/session' && method === 'GET') {
-      return Array.from(this.mockSessions.values()) as T;
-    }
-    if (endpoint.startsWith('/session/') && endpoint.endsWith('/message')) {
-      const sessionId = endpoint.split('/')[2];
-      return (this.mockMessages.get(sessionId) || []) as T;
-    }
-    if (endpoint === '/app') {
-      return { 
-        path: { cwd: '/Users/cedric/dev/ran/opencode-ui' },
-        version: '1.0.0-mock'
-      } as T;
-    }
-
-    // Default mock response
-    throw new OpenCodeAPIError(`Mock endpoint not implemented: ${endpoint}`, 404);
-  }
-
-  private createMockSession(config: SessionConfig): Session {
-    const session: Session = {
-      id: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      name: config.name || `Session ${new Date().toLocaleDateString()}`,
-      project_path: config.project_path,
-      provider: config.provider,
-      model: config.model,
-      created_at: Date.now(),
-      updated_at: Date.now(),
-      status: 'active',
-      message_count: 0,
-      total_cost: 0,
-      config: config,
-      shared: false,
-      tools_used: [],
-      token_usage: {
-        input_tokens: 0,
-        output_tokens: 0
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new OpenCodeAPIError(
+          `OpenCode server not available. Please start server with: opencode serve --port 4096`,
+          503
+        );
       }
-    };
-
-    this.mockSessions.set(session.id, session);
-    this.mockMessages.set(session.id, []);
-    
-    return session;
+      throw error;
+    }
   }
 
-  private getMockSession(sessionId: string): Session | null {
-    return this.mockSessions.get(sessionId) || null;
-  }
 
   // Provider Management
   async getProviders(): Promise<Provider[]> {
-    // Comprehensive mock data for 75+ providers
-    return [
-      // Foundation Models
-      {
-        id: "anthropic",
-        name: "Anthropic",
-        type: "anthropic",
-        models: ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229", "claude-3-haiku-20240307"],
-        authenticated: Math.random() > 0.5,
-        status: "online",
-        cost_per_1k_tokens: 0.003,
-        avg_response_time: 850,
-        description: "Advanced reasoning with Claude AI models"
-      },
-      {
-        id: "openai",
-        name: "OpenAI",
-        type: "openai", 
-        models: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo", "o1-preview", "o1-mini"],
-        authenticated: Math.random() > 0.5,
-        status: "online",
-        cost_per_1k_tokens: 0.01,
-        avg_response_time: 750,
-        description: "GPT models with multimodal capabilities"
-      },
-      {
-        id: "google",
-        name: "Google AI",
-        type: "google",
-        models: ["gemini-2.0-flash-exp", "gemini-1.5-pro", "gemini-1.5-flash", "gemini-1.0-pro"],
-        authenticated: Math.random() > 0.5,
-        status: Math.random() > 0.8 ? "offline" : "online",
-        cost_per_1k_tokens: 0.002,
-        avg_response_time: 920,
-        description: "Gemini models with advanced reasoning"
-      },
-      
-      // High Performance
-      {
-        id: "groq",
-        name: "Groq",
-        type: "groq",
-        models: ["llama-3.1-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768", "gemma-7b-it"],
-        authenticated: Math.random() > 0.5,
-        status: "online",
-        cost_per_1k_tokens: 0.0005,
-        avg_response_time: 400,
-        description: "Ultra-fast inference with specialized hardware"
-      },
-      {
-        id: "together",
-        name: "Together AI",
-        type: "other",
-        models: ["llama-3.1-70b-instruct", "llama-3.1-8b-instruct", "mixtral-8x7b-instruct", "qwen-2.5-72b-instruct"],
-        authenticated: Math.random() > 0.5,
-        status: "online",
-        cost_per_1k_tokens: 0.0008,
-        avg_response_time: 600,
-        description: "Open source models at scale"
-      },
-      {
-        id: "fireworks",
-        name: "Fireworks AI",
-        type: "other",
-        models: ["llama-3.1-70b-instruct", "llama-3.1-8b-instruct", "mixtral-8x7b-instruct"],
-        authenticated: Math.random() > 0.5,
-        status: "online",
-        cost_per_1k_tokens: 0.0009,
-        avg_response_time: 450,
-        description: "Fast generative AI inference platform"
-      },
-      
-      // Specialized Models
-      {
-        id: "cohere",
-        name: "Cohere",
-        type: "other",
-        models: ["command-r-plus", "command-r", "command-light", "embed-v3"],
-        authenticated: Math.random() > 0.5,
-        status: "online",
-        cost_per_1k_tokens: 0.003,
-        avg_response_time: 800,
-        description: "Enterprise AI with retrieval capabilities"
-      },
-      {
-        id: "mistral",
-        name: "Mistral AI",
-        type: "other",
-        models: ["mixtral-8x7b-instruct", "mistral-7b-instruct", "mistral-large"],
-        authenticated: Math.random() > 0.5,
-        status: "online",
-        cost_per_1k_tokens: 0.0007,
-        avg_response_time: 650,
-        description: "Efficient European AI models"
-      },
-      {
-        id: "huggingface",
-        name: "Hugging Face",
-        type: "other",
-        models: ["codellama-34b-instruct", "zephyr-7b-beta", "phi-3-medium"],
-        authenticated: Math.random() > 0.5,
-        status: "online",
-        cost_per_1k_tokens: 0.0002,
-        avg_response_time: 1200,
-        description: "Open source AI model hub"
-      },
-      {
-        id: "replicate",
-        name: "Replicate",
-        type: "other",
-        models: ["llama-3.1-70b-instruct", "codellama-34b-instruct", "stable-diffusion"],
-        authenticated: Math.random() > 0.5,
-        status: "online",
-        cost_per_1k_tokens: 0.001,
-        avg_response_time: 1500,
-        description: "Run ML models in the cloud"
-      },
-      
-      // Emerging Providers
-      {
-        id: "perplexity",
-        name: "Perplexity",
-        type: "other",
-        models: ["llama-3.1-sonar-large", "llama-3.1-sonar-small"],
-        authenticated: Math.random() > 0.5,
-        status: "online",
-        cost_per_1k_tokens: 0.002,
-        avg_response_time: 900,
-        description: "AI search and reasoning platform"
-      },
-      {
-        id: "deepseek",
-        name: "DeepSeek",
-        type: "other",
-        models: ["deepseek-r1", "deepseek-coder-v2", "deepseek-math"],
-        authenticated: Math.random() > 0.5,
-        status: "online",
-        cost_per_1k_tokens: 0.0003,
-        avg_response_time: 1100,
-        description: "Advanced reasoning and coding models"
-      },
-      {
-        id: "alibaba",
-        name: "Alibaba Cloud",
-        type: "other",
-        models: ["qwen-2.5-72b", "qwen-2.5-32b", "qwen-2.5-14b"],
-        authenticated: Math.random() > 0.5,
-        status: "online",
-        cost_per_1k_tokens: 0.0004,
-        avg_response_time: 1000,
-        description: "Qwen large language models"
-      },
-      {
-        id: "xai",
-        name: "xAI",
-        type: "other",
-        models: ["grok-1", "grok-1.5"],
-        authenticated: Math.random() > 0.5,
-        status: Math.random() > 0.7 ? "offline" : "online",
-        cost_per_1k_tokens: 0.005,
-        avg_response_time: 1200,
-        description: "Grok AI models with real-time knowledge"
-      },
-      
-      // Local/Self-Hosted
-      {
-        id: "ollama",
-        name: "Ollama",
-        type: "local",
-        models: ["llama3.1:70b", "llama3.1:8b", "codellama:34b", "mistral:7b", "qwen2.5:32b", "phi3:medium", "gemma2:9b"],
-        authenticated: true,
-        status: Math.random() > 0.9 ? "offline" : "online",
-        cost_per_1k_tokens: 0,
-        avg_response_time: 2000,
-        description: "Run large language models locally with Ollama",
-        config: {
-          baseURL: "http://localhost:11434/v1",
-          npm: "@ai-sdk/openai-compatible"
-        }
-      },
-      {
-        id: "llamacpp",
-        name: "llama.cpp",
-        type: "local",
-        models: ["custom-model", "llama-3.1-8b-q4", "llama-3.1-70b-q4", "codellama-7b-q4"],
-        authenticated: true,
-        status: Math.random() > 0.8 ? "offline" : "online",
-        cost_per_1k_tokens: 0,
-        avg_response_time: 3000,
-        description: "Local LLM inference in C++",
-        config: {
-          baseURL: "http://localhost:8080/v1",
-          npm: "@ai-sdk/openai-compatible"
-        }
-      },
-      {
-        id: "lmstudio",
-        name: "LM Studio",
-        type: "local",
-        models: ["llama-3.1-8b-instruct", "phi-3-medium", "codellama-13b"],
-        authenticated: true,
-        status: Math.random() > 0.7 ? "offline" : "online",
-        cost_per_1k_tokens: 0,
-        avg_response_time: 2500,
-        description: "Easy to use local LLM interface",
-        config: {
-          baseURL: "http://localhost:1234/v1",
-          npm: "@ai-sdk/openai-compatible"
-        }
-      },
-      {
-        id: "localai",
-        name: "LocalAI",
-        type: "local",
-        models: ["gpt-3.5-turbo", "text-davinci-003", "llama2-chat"],
-        authenticated: true,
-        status: Math.random() > 0.8 ? "offline" : "online",
-        cost_per_1k_tokens: 0,
-        avg_response_time: 1800,
-        description: "Drop-in OpenAI replacement for local inference",
-        config: {
-          baseURL: "http://localhost:8080/v1",
-          npm: "@ai-sdk/openai-compatible"
-        }
-      },
-      {
-        id: "textgen-webui",
-        name: "Text Generation WebUI",
-        type: "local",
-        models: ["custom-model"],
-        authenticated: true,
-        status: Math.random() > 0.8 ? "offline" : "online",
-        cost_per_1k_tokens: 0,
-        avg_response_time: 2200,
-        description: "Gradio web UI for running Large Language Models",
-        config: {
-          baseURL: "http://localhost:5000/v1",
-          npm: "@ai-sdk/openai-compatible"
-        }
-      },
-      
-      // Additional Providers (expanding to 75+)
-      {
-        id: "ai21",
-        name: "AI21 Labs",
-        type: "other",
-        models: ["jurassic-2-ultra", "jurassic-2-mid"],
-        authenticated: Math.random() > 0.5,
-        status: "online",
-        cost_per_1k_tokens: 0.015,
-        avg_response_time: 900,
-        description: "Jurassic language models"
-      },
-      {
-        id: "baseten",
-        name: "Baseten",
-        type: "other",
-        models: ["llama-3.1-70b", "mistral-7b"],
-        authenticated: Math.random() > 0.5,
-        status: "online",
-        cost_per_1k_tokens: 0.001,
-        avg_response_time: 800,
-        description: "ML infrastructure platform"
-      },
-      {
-        id: "runpod",
-        name: "RunPod",
-        type: "other",
-        models: ["llama-3.1-70b", "stable-diffusion-xl"],
-        authenticated: Math.random() > 0.5,
-        status: "online",
-        cost_per_1k_tokens: 0.0008,
-        avg_response_time: 1100,
-        description: "GPU cloud for AI inference"
-      },
-      {
-        id: "modal",
-        name: "Modal",
-        type: "other",
-        models: ["llama-3.1-70b", "codellama-34b"],
-        authenticated: Math.random() > 0.5,
-        status: "online",
-        cost_per_1k_tokens: 0.0012,
-        avg_response_time: 950,
-        description: "Serverless cloud for ML"
-      },
-      {
-        id: "banana",
-        name: "Banana",
-        type: "other",
-        models: ["stable-diffusion", "whisper-large"],
-        authenticated: Math.random() > 0.5,
-        status: "online",
-        cost_per_1k_tokens: 0.0015,
-        avg_response_time: 1300,
-        description: "Serverless ML inference"
-      }
-    ];
+    const response = await this.request<{
+      providers: Provider[];
+      default: Record<string, string>;
+    }>("/config/providers");
+    return response.providers;
   }
 
   async authenticateProvider(
@@ -862,75 +502,59 @@ export class OpenCodeClient {
   }
 
   async getProviderStatus(): Promise<Record<string, "online" | "offline" | "error">> {
-    return this.request("/providers/status");
+    // OpenCode server doesn't provide status endpoint, return mock data
+    console.warn('Provider status endpoint not available, returning mock data');
+    return {};
   }
 
   async getProviderMetrics(): Promise<ProviderMetrics[]> {
-    // Mock data for development
-    return [
-      {
-        provider_id: "anthropic",
-        requests: 125,
-        avg_response_time: 850,
-        total_cost: 2.45,
-        error_rate: 0.02,
-        last_24h: {
-          requests: 45,
-          cost: 0.89,
-          avg_response_time: 920
-        }
-      },
-      {
-        provider_id: "openai", 
-        requests: 89,
-        avg_response_time: 750,
-        total_cost: 1.89,
-        error_rate: 0.01,
-        last_24h: {
-          requests: 32,
-          cost: 0.67,
-          avg_response_time: 780
-        }
-      }
-    ];
+    // OpenCode server doesn't provide metrics endpoint, return mock data
+    console.warn('Provider metrics endpoint not available, returning mock data');
+    return [];
   }
 
   async getProviderHealth(): Promise<ProviderHealth[]> {
-    // Mock data for development
-    return [
-      {
-        provider_id: "anthropic",
-        status: "online",
-        response_time: 850,
-        last_check: Date.now(),
-        uptime: 99.9,
-        region: "us-east-1"
-      },
-      {
-        provider_id: "openai",
-        status: "online", 
-        response_time: 750,
-        last_check: Date.now(),
-        uptime: 98.5,
-        region: "us-west-2"
-      },
-      {
-        provider_id: "google",
-        status: "offline",
-        response_time: 0,
-        last_check: Date.now() - 300000,
-        uptime: 95.2,
-        region: "us-central1"
-      }
-    ];
+    // OpenCode server doesn't provide health endpoint, return mock data
+    console.warn('Provider health endpoint not available, returning mock data');
+    return [];
   }
 
   // Session Management
   async createSession(config: SessionConfig): Promise<Session> {
-    // OpenCode API creates sessions without config in the body
-    return this.request<Session>("/session", {
-      method: "POST",
-    });
+    try {
+      // OpenCode API creates sessions without config (config is managed separately)
+      const rawSession = await this.request<{
+        id: string;
+        version: string;
+        title: string;
+        time: {
+          created: number;
+          updated: number;
+        };
+      }>("/session", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      
+      // Transform to expected format
+      return {
+        id: rawSession.id,
+        name: rawSession.title,
+        project_id: undefined,
+        project_path: config.project_path || "",
+        provider: config.provider,
+        model: config.model,
+        created_at: rawSession.time.created,
+        updated_at: rawSession.time.updated,
+        status: "active" as const,
+        message_count: 0,
+        total_cost: 0,
+        config: config
+      };
+    } catch (error) {
+      console.error('Failed to create session:', error);
+      throw error;
+    }
   }
 
   async getSession(sessionId: string): Promise<Session> {
@@ -938,7 +562,41 @@ export class OpenCodeClient {
   }
 
   async getSessions(): Promise<Session[]> {
-    return this.request<Session[]>("/session");
+    try {
+      const rawSessions = await this.request<Array<{
+        id: string;
+        version: string;
+        title: string;
+        time: {
+          created: number;
+          updated: number;
+        };
+      }>>("/session");
+      
+      // Transform OpenCode session format to expected format
+      return rawSessions.map(session => ({
+        id: session.id,
+        name: session.title,
+        project_id: undefined,
+        project_path: "", // OpenCode doesn't provide this in session list
+        provider: "anthropic", // Default provider - actual provider would need to be fetched separately
+        model: "claude-3-5-sonnet-20241022", // Default model - actual model would need to be fetched separately
+        created_at: session.time.created,
+        updated_at: session.time.updated,
+        status: "active" as const, // OpenCode doesn't provide status in session list
+        message_count: 0, // Would need to be fetched separately
+        total_cost: 0, // Would need to be fetched separately
+        config: {
+          name: session.title,
+          project_path: "",
+          provider: "anthropic",
+          model: "claude-3-5-sonnet-20241022"
+        }
+      }));
+    } catch (error) {
+      console.warn('Failed to fetch sessions from OpenCode server, returning empty array:', error);
+      return [];
+    }
   }
 
   async deleteSession(sessionId: string): Promise<void> {
@@ -951,28 +609,28 @@ export class OpenCodeClient {
     password?: string;
     expires_in_hours?: number;
   }): Promise<ShareLink> {
-    return this.request(`/sessions/${sessionId}/share`, {
+    return this.request(`/session/${sessionId}/share`, {
       method: "POST",
       body: JSON.stringify(options || {}),
     });
   }
 
   async importSession(shareLink: string, password?: string): Promise<Session> {
-    return this.request("/sessions/import", {
+    return this.request("/session/import", {
       method: "POST",
       body: JSON.stringify({ share_link: shareLink, password }),
     });
   }
 
   async duplicateSession(sessionId: string, name?: string): Promise<Session> {
-    return this.request(`/sessions/${sessionId}/duplicate`, {
+    return this.request(`/session/${sessionId}/duplicate`, {
       method: "POST",
       body: JSON.stringify({ name }),
     });
   }
 
   async exportSession(sessionId: string, format: "json" | "markdown" | "text" = "json"): Promise<{ content: string; filename: string }> {
-    return this.request(`/sessions/${sessionId}/export?format=${format}`);
+    return this.request(`/session/${sessionId}/export?format=${format}`);
   }
 
   async getSessionStats(sessionId: string): Promise<{
@@ -983,7 +641,7 @@ export class OpenCodeClient {
     start_time: number;
     duration: number;
   }> {
-    return this.request(`/sessions/${sessionId}/stats`);
+    return this.request(`/session/${sessionId}/stats`);
   }
 
   async sendMessage(
@@ -994,11 +652,21 @@ export class OpenCodeClient {
       model_config?: Record<string, any>;
       tools_enabled?: boolean;
       system_prompt?: string;
+      providerID?: string;
+      modelID?: string;
     }
   ): Promise<{ messageId: string }> {
-    return this.request(`/sessions/${sessionId}/message`, {
+    // Format message according to OpenCode API requirements
+    const payload = {
+      providerID: options?.providerID || "anthropic",
+      modelID: options?.modelID || "claude-3-5-sonnet-20241022", 
+      parts: [{ type: "text", text: content }],
+      ...options
+    };
+    
+    return this.request(`/session/${sessionId}/message`, {
       method: "POST",
-      body: JSON.stringify({ content, ...options }),
+      body: JSON.stringify(payload),
     });
   }
 
@@ -1025,7 +693,7 @@ export class OpenCodeClient {
       const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
 
       try {
-        const response = await fetch(`${this.baseURL}/api/sessions/${sessionId}/stream`, {
+        const response = await fetch(`${this.baseURL}/session/${sessionId}/stream`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -1181,24 +849,24 @@ export class OpenCodeClient {
     if (options?.since) params.set('since', options.since.toString());
     
     const query = params.toString() ? `?${params.toString()}` : '';
-    return this.request<Message[]>(`/sessions/${sessionId}/messages${query}`);
+    return this.request<Message[]>(`/session/${sessionId}/messages${query}`);
   }
 
   async deleteMessage(sessionId: string, messageId: string): Promise<void> {
-    await this.request(`/sessions/${sessionId}/messages/${messageId}`, {
+    await this.request(`/session/${sessionId}/messages/${messageId}`, {
       method: "DELETE",
     });
   }
 
   async editMessage(sessionId: string, messageId: string, content: string): Promise<Message> {
-    return this.request(`/sessions/${sessionId}/messages/${messageId}`, {
+    return this.request(`/session/${sessionId}/messages/${messageId}`, {
       method: "PUT",
       body: JSON.stringify({ content }),
     });
   }
 
   async regenerateResponse(sessionId: string, messageId: string): Promise<{ messageId: string }> {
-    return this.request(`/sessions/${sessionId}/messages/${messageId}/regenerate`, {
+    return this.request(`/session/${sessionId}/messages/${messageId}/regenerate`, {
       method: "POST",
     });
   }
@@ -1344,61 +1012,14 @@ export class OpenCodeClient {
 
   // Tool Management
   async getTools(): Promise<Tool[]> {
-    // Mock data for development
-    return [
-      {
-        id: "file_read",
-        name: "Read File",
-        description: "Read contents of a file",
-        category: "file",
-        enabled: true
-      },
-      {
-        id: "file_write",
-        name: "Write File",
-        description: "Write contents to a file",
-        category: "file",
-        enabled: true
-      },
-      {
-        id: "bash",
-        name: "Execute Command",
-        description: "Execute shell commands",
-        category: "system",
-        enabled: true
-      },
-      {
-        id: "web_search",
-        name: "Web Search",
-        description: "Search the web for information",
-        category: "system",
-        enabled: true
-      }
-    ];
+    return this.request<Tool[]>("/tools");
   }
 
   async getToolExecutions(sessionId?: string): Promise<ToolExecution[]> {
-    // Mock data for development
-    return [
-      {
-        id: "exec-1",
-        tool_id: "file_read",
-        session_id: sessionId || "session-1",
-        status: "completed",
-        params: { path: "/src/index.ts" },
-        result: "File content here...",
-        created_at: Date.now() - 300000,
-        completed_at: Date.now() - 295000
-      },
-      {
-        id: "exec-2",
-        tool_id: "bash",
-        session_id: sessionId || "session-1",
-        status: "pending",
-        params: { command: "npm test" },
-        created_at: Date.now() - 60000
-      }
-    ];
+    const endpoint = sessionId 
+      ? `/tools/executions?session_id=${sessionId}`
+      : "/tools/executions";
+    return this.request<ToolExecution[]>(endpoint);
   }
 
   async executeTool(
@@ -1420,7 +1041,7 @@ export class OpenCodeClient {
           error: `Tool execution blocked: ${validationResult.reason}`,
           execution_time: 0,
           tool_id: toolId
-        };
+        } as ToolResult;
       }
       
       // Check if approval is required
@@ -1436,7 +1057,7 @@ export class OpenCodeClient {
             error: "Tool execution requires user approval",
             execution_time: 0,
             tool_id: toolId
-          };
+          } as ToolResult;
         }
       }
       
@@ -1470,7 +1091,7 @@ export class OpenCodeClient {
         error: error instanceof Error ? error.message : "Tool execution failed",
         execution_time: Date.now() - Date.now(),
         tool_id: toolId
-      };
+      } as ToolResult;
     }
   }
 
@@ -1527,31 +1148,7 @@ export class OpenCodeClient {
 
   // Configuration Management
   async getConfig(): Promise<OpenCodeConfig> {
-    // Mock data for development
-    return {
-      theme: "opencode",
-      model: "anthropic/claude-3-5-sonnet-20241022",
-      autoshare: false,
-      autoupdate: true,
-      providers: {
-        anthropic: { apiKey: "", disabled: false },
-        openai: { apiKey: "", disabled: false },
-        google: { apiKey: "", disabled: false },
-        groq: { apiKey: "", disabled: false }
-      },
-      agents: {
-        primary: { model: "claude-3-5-sonnet-20241022", maxTokens: 8000 },
-        task: { model: "claude-3-5-sonnet-20241022", maxTokens: 4000 },
-        title: { model: "claude-3-5-haiku-20241022", maxTokens: 100 }
-      },
-      mcp: {},
-      lsp: {
-        typescript: { command: "typescript-language-server", args: ["--stdio"] },
-        python: { command: "pylsp" }
-      },
-      keybinds: {},
-      shell: { path: "/bin/bash", args: ["-l"] }
-    };
+    return this.request<OpenCodeConfig>("/config");
   }
 
   async updateConfig(config: Partial<OpenCodeConfig>): Promise<void> {
@@ -1590,14 +1187,6 @@ export class OpenCodeClient {
     sessionId: string,
     onMessage: (update: SessionUpdate) => void = () => {}
   ): () => void {
-    // In mock mode, return a no-op cleanup function
-    if (this.mockMode) {
-      console.log(`Mock mode: Subscribed to session ${sessionId}`);
-      return () => {
-        console.log(`Mock mode: Unsubscribed from session ${sessionId}`);
-      };
-    }
-
     this.setupSessionWebSocket(sessionId, onMessage);
     
     // Return cleanup function
@@ -1615,88 +1204,85 @@ export class OpenCodeClient {
     sessionId: string,
     onMessage?: (update: SessionUpdate) => void
   ): Promise<void> {
-    const wsUrl = `ws://localhost:8080/api/ws/sessions/${sessionId}`;
-    const ws = new WebSocket(wsUrl);
-    
-    // Initialize message queue for this session
-    if (!this.messageQueue.has(sessionId)) {
-      this.messageQueue.set(sessionId, []);
-    }
-    
-    ws.onopen = () => {
-      console.log(`WebSocket connected for session ${sessionId}`);
-      this.reconnectAttempts.delete(sessionId);
-      this.handleConnectionStatusChange('connected');
-      
-      // Process any queued messages
-      this.processQueuedMessages(sessionId, ws);
-      
-      // Send initial heartbeat
-      this.sendHeartbeat(ws);
-      
-      this.emit('websocket_connected', { sessionId });
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const update: SessionUpdate = JSON.parse(event.data);
-        
-        // Handle heartbeat responses
-        if (update.type === 'heartbeat') {
-          this.lastHeartbeat = Date.now();
-          return;
-        }
-        
-        if (onMessage) {
-          onMessage(update);
-        }
-        this.emit('session_update', { sessionId, update });
-      } catch (error) {
-        console.error("Error parsing WebSocket message:", error);
-        this.emit('websocket_parse_error', { sessionId, error });
-      }
-    };
-
-    ws.onerror = (error) => {
-      // Silently handle WebSocket errors - expected when OpenCode server is not running
-      this.emit('websocket_error', { sessionId, error });
-    };
-
-    ws.onclose = (event) => {
-      // WebSocket closed - cleanup
-      this.websockets.delete(sessionId);
-      
-      // Attempt reconnection if not a clean close
-      if (event.code !== 1000 && this.connectionStatus === 'connected') {
-        this.attemptReconnect(sessionId, onMessage);
-      } else {
-        // Clean up message queue on clean close
-        this.messageQueue.delete(sessionId);
-      }
-      
-      this.emit('websocket_disconnected', { sessionId, code: event.code, reason: event.reason });
-    };
-
-    this.websockets.set(sessionId, ws);
-    
-    // Set up connection health monitoring
-    this.setupConnectionHealthMonitoring();
+    // Use the SSE event stream endpoint instead of WebSocket
+    const eventUrl = `${this.baseURL}/event`;
+    this.setupEventStream(sessionId, onMessage, eventUrl);
+    return;
   }
 
-  private async attemptReconnect(sessionId: string, onMessage?: (update: SessionUpdate) => void): Promise<void> {
+  private setupEventStream(
+    sessionId: string,
+    onMessage?: (update: SessionUpdate) => void,
+    eventUrl?: string
+  ): void {
+    const url = eventUrl || `${this.baseURL}/event`;
+    
+    try {
+      const eventSource = new EventSource(url);
+      
+      // Initialize message queue for this session
+      if (!this.messageQueue.has(sessionId)) {
+        this.messageQueue.set(sessionId, []);
+      }
+
+      eventSource.onopen = () => {
+        console.log(`EventSource connected for session ${sessionId}`);
+        this.reconnectAttempts.delete(sessionId);
+        this.handleConnectionStatusChange('connected');
+        this.emit('websocket_connected', { sessionId });
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          const update: SessionUpdate = JSON.parse(event.data);
+          
+          // Filter events for this session if needed
+          if ((update as any).sessionId && (update as any).sessionId !== sessionId) {
+            return;
+          }
+          
+          if (onMessage) {
+            onMessage(update);
+          }
+          this.emit('session_update', { sessionId, update });
+        } catch (error) {
+          console.warn("Error parsing EventSource message:", error);
+          this.emit('websocket_parse_error', { sessionId, error });
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.log(`EventSource error for session ${sessionId}:`, error);
+        this.emit('websocket_error', { sessionId, error });
+        
+        // Attempt reconnection
+        setTimeout(() => {
+          this.attemptEventSourceReconnect(sessionId, onMessage);
+        }, this.reconnectDelay);
+      };
+
+      // Store the EventSource (treating it like a WebSocket for compatibility)
+      this.websockets.set(sessionId, eventSource as any);
+    } catch (error) {
+      console.warn(`Failed to setup EventSource for session ${sessionId}:`, error);
+    }
+  }
+
+  private async attemptEventSourceReconnect(sessionId: string, onMessage?: (update: SessionUpdate) => void): Promise<void> {
     const attempts = this.reconnectAttempts.get(sessionId) || 0;
     
     if (attempts >= this.maxReconnectAttempts) {
-      console.error(`Max reconnection attempts reached for session ${sessionId}`);
+      console.warn(`Max reconnection attempts reached for session ${sessionId}`);
       this.emit('websocket_reconnect_failed', { sessionId });
+      this.reconnectAttempts.delete(sessionId);
       return;
     }
 
     this.reconnectAttempts.set(sessionId, attempts + 1);
     
     setTimeout(() => {
-      console.log(`Attempting to reconnect session ${sessionId} (attempt ${attempts + 1})`);
-      this.setupSessionWebSocket(sessionId, onMessage);
+      console.log(`Attempting to reconnect session ${sessionId} EventSource (attempt ${attempts + 1})`);
+      this.setupEventStream(sessionId, onMessage);
     }, this.reconnectDelay * Math.pow(2, attempts)); // Exponential backoff
   }
 
@@ -1708,37 +1294,36 @@ export class OpenCodeClient {
     }) => void
   ): () => void {
     try {
-      const wsUrl = `ws://localhost:8080/api/ws/providers`;
-      const ws = new WebSocket(wsUrl);
+      const eventUrl = `${this.baseURL}/event`;
+      const eventSource = new EventSource(eventUrl);
       
-      ws.onmessage = (event) => {
+      eventSource.onmessage = (event) => {
         try {
           const update = JSON.parse(event.data);
-          if (onUpdate) {
-            onUpdate(update);
+          // Filter for provider-related events
+          if (update.type && ['provider_status', 'provider_metrics', 'provider_auth'].includes(update.type)) {
+            if (onUpdate) {
+              onUpdate(update);
+            }
+            this.emit('provider_update', update);
           }
-          this.emit('provider_update', update);
         } catch (error) {
           console.error("Error parsing provider update:", error);
         }
       };
       
-      ws.onerror = (error) => {
-        // Silently handle WebSocket errors - expected when OpenCode server is not running
-      };
-      
-      ws.onclose = () => {
-        // Connection closed - this is normal
+      eventSource.onerror = (error) => {
+        // Silently handle EventSource errors - expected when OpenCode server is not running
       };
     
-      this.websockets.set('providers', ws);
+      this.websockets.set('providers', eventSource as any);
       
       return () => {
-        ws.close();
+        eventSource.close();
         this.websockets.delete('providers');
       };
     } catch (error) {
-      // WebSocket connection failed - return a no-op cleanup function
+      // EventSource connection failed - return a no-op cleanup function
       return () => {};
     }
   }
@@ -1751,37 +1336,36 @@ export class OpenCodeClient {
     }) => void
   ): () => void {
     try {
-      const wsUrl = `ws://localhost:8080/api/ws/tools`;
-      const ws = new WebSocket(wsUrl);
+      const eventUrl = `${this.baseURL}/event`;
+      const eventSource = new EventSource(eventUrl);
       
-      ws.onmessage = (event) => {
+      eventSource.onmessage = (event) => {
         try {
           const update = JSON.parse(event.data);
-          if (onUpdate) {
-            onUpdate(update);
+          // Filter for tool execution events
+          if (update.type && ['tool_execution', 'tool_approval', 'tool_result'].includes(update.type)) {
+            if (onUpdate) {
+              onUpdate(update);
+            }
+            this.emit('tool_execution_update', update);
           }
-          this.emit('tool_execution_update', update);
         } catch (error) {
           console.error("Error parsing tool execution update:", error);
         }
       };
       
-      ws.onerror = (error) => {
-        // Silently handle WebSocket errors - expected when OpenCode server is not running
+      eventSource.onerror = (error) => {
+        // Silently handle EventSource errors - expected when OpenCode server is not running
       };
       
-      ws.onclose = () => {
-        // Connection closed - this is normal
-      };
-      
-      this.websockets.set('tools', ws);
+      this.websockets.set('tools', eventSource as any);
       
       return () => {
-        ws.close();
+        eventSource.close();
         this.websockets.delete('tools');
       };
     } catch (error) {
-      // WebSocket connection failed - return a no-op cleanup function
+      // EventSource connection failed - return a no-op cleanup function
       return () => {};
     }
   }
@@ -2061,17 +1645,17 @@ export class OpenCodeClient {
 
   // Health Check
   async healthCheck(): Promise<{ status: string; version: string }> {
-    if (this.mockMode) {
-      return { status: "mock", version: "1.0.0-mock" };
-    }
-    
     try {
+      console.log(`Health check: requesting ${this.baseURL}/app`);
       const appInfo = await this.request<{ version: string }>("/app");
+      console.log('Health check successful:', appInfo);
       return { status: "ok", version: appInfo.version };
     } catch (error) {
-      // If the server is not running, return mock data for development
-      this.mockMode = true;
-      return { status: "mock", version: "1.0.0-mock" };
+      console.error('Health check failed:', error);
+      throw new OpenCodeAPIError(
+        `OpenCode server not available. Please start server with: opencode serve --port 4096`,
+        503
+      );
     }
   }
 
@@ -2269,16 +1853,45 @@ export class OpenCodeClient {
         name: "Code Review Assistant",
         category: "coding",
         description: "Specialized agent for reviewing code quality and suggesting improvements",
+        icon: "🔍",
         system_prompt: "You are a senior software engineer specializing in code review. Analyze code for best practices, security issues, and performance optimizations.",
         provider: "anthropic",
         model: "claude-3-5-sonnet-20241022",
         temperature: 0.3,
         max_tokens: 4000,
         default_task: "Review the provided code and suggest improvements",
+        tools: ["file_reader", "code_analyzer", "syntax_checker"],
+        capabilities: [
+          {
+            id: "code-review",
+            name: "Code Review",
+            description: "Analyze code for quality, security, and performance issues",
+            enabled: true,
+            config: { severity_threshold: "medium" }
+          },
+          {
+            id: "security-scan",
+            name: "Security Scanning",
+            description: "Detect potential security vulnerabilities",
+            enabled: true
+          }
+        ],
+        sandbox_enabled: true,
+        permissions: {
+          file_read: true,
+          file_write: false,
+          network_access: false,
+          system_commands: false,
+          environment_access: false,
+          package_management: false,
+          custom_tools: ["code_analyzer"]
+        },
         created_by: "system",
         version: "1.0.0",
         created_at: "2024-01-01T00:00:00Z",
         updated_at: "2024-01-01T00:00:00Z",
+        tags: ["code-review", "security", "quality"],
+        is_public: true,
         usage_count: 15,
         rating: 4.8
       },
@@ -2287,16 +1900,45 @@ export class OpenCodeClient {
         name: "Data Analysis Expert",
         category: "data-analysis",
         description: "Analyzes datasets and provides insights with visualizations",
+        icon: "📊",
         system_prompt: "You are a data scientist with expertise in statistical analysis and visualization. Help users understand their data through clear explanations and actionable insights.",
         provider: "openai",
         model: "gpt-4",
         temperature: 0.4,
         max_tokens: 3000,
         default_task: "Analyze the provided dataset and summarize key findings",
+        tools: ["data_processor", "chart_generator", "statistics_calculator"],
+        capabilities: [
+          {
+            id: "data-analysis",
+            name: "Data Analysis",
+            description: "Statistical analysis and data processing",
+            enabled: true,
+            config: { confidence_level: 0.95 }
+          },
+          {
+            id: "visualization",
+            name: "Data Visualization",
+            description: "Generate charts and graphs from data",
+            enabled: true
+          }
+        ],
+        sandbox_enabled: true,
+        permissions: {
+          file_read: true,
+          file_write: true,
+          network_access: false,
+          system_commands: false,
+          environment_access: false,
+          package_management: false,
+          custom_tools: ["data_processor", "chart_generator"]
+        },
         created_by: "system",
         version: "1.0.0", 
         created_at: "2024-01-02T00:00:00Z",
         updated_at: "2024-01-02T00:00:00Z",
+        tags: ["data-analysis", "visualization", "statistics"],
+        is_public: true,
         usage_count: 23,
         rating: 4.6
       }
@@ -2331,16 +1973,38 @@ export class OpenCodeClient {
       name: "Updated Agent",
       category: "coding",
       description: "Updated description",
+      icon: "🤖",
       system_prompt: "Updated system prompt",
       provider: "anthropic",
       model: "claude-3-5-sonnet-20241022",
       temperature: 0.5,
       max_tokens: 4000,
       default_task: "Updated task",
+      tools: ["file_reader", "code_analyzer"],
+      capabilities: [
+        {
+          id: "general",
+          name: "General Assistant",
+          description: "General purpose assistance",
+          enabled: true
+        }
+      ],
+      sandbox_enabled: true,
+      permissions: {
+        file_read: true,
+        file_write: false,
+        network_access: false,
+        system_commands: false,
+        environment_access: false,
+        package_management: false,
+        custom_tools: []
+      },
       created_by: "current-user",
       version: "1.0.0",
       created_at: "2024-01-01T00:00:00Z",
       updated_at: new Date().toISOString(),
+      tags: ["updated"],
+      is_public: false,
       usage_count: 0,
       rating: 4.5,
       ...updates
@@ -2394,7 +2058,7 @@ export class OpenCodeClient {
         task: request.task,
         model: "claude-3.5-sonnet",
         provider: "anthropic",
-        project_path: request.project_path,
+        project_path: request.project_path || "/tmp/agent-workspace",
         status: "running",
         started_at: new Date().toISOString(),
         metrics: {

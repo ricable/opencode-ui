@@ -22,17 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useSessionStore } from "@/lib/session-store";
-
-export type OpenCodeView = 
-  | "welcome" 
-  | "projects" 
-  | "providers" 
-  | "agents" 
-  | "settings" 
-  | "session" 
-  | "usage-dashboard" 
-  | "mcp"
-  | "tools";
+import { OpenCodeView } from "@/types/opencode";
 
 interface SettingsViewProps {
   onViewChange: (view: OpenCodeView) => void;
@@ -59,11 +49,11 @@ export function SettingsView({ onViewChange }: SettingsViewProps) {
     let current = newConfig;
     
     for (let i = 0; i < keys.length - 1; i++) {
-      if (!current[keys[i]]) current[keys[i]] = {};
-      current = current[keys[i]];
+      if (!(current as any)[keys[i]]) (current as any)[keys[i]] = {};
+      current = (current as any)[keys[i]];
     }
     
-    current[keys[keys.length - 1]] = value;
+    (current as any)[keys[keys.length - 1]] = value;
     setLocalConfig(newConfig);
     setHasChanges(true);
   };
@@ -182,7 +172,7 @@ export function SettingsView({ onViewChange }: SettingsViewProps) {
 
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-base">Include "Co-authored by Claude"</Label>
+                    <Label className="text-base">Include &quot;Co-authored by Claude&quot;</Label>
                     <p className="text-sm text-muted-foreground">
                       Add Claude attribution to git commits and pull requests
                     </p>

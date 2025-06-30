@@ -5,7 +5,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus,
@@ -39,6 +39,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils';
 import { useSessionStore } from '@/lib/session-store';
 import { SessionConfig, Provider } from '@/lib/opencode-client';
+import { SessionTemplate } from '@/types/opencode';
 
 interface SessionCreationProps {
   /**
@@ -59,7 +60,7 @@ interface SessionCreationProps {
   onSessionCreated?: (sessionId: string) => void;
 }
 
-interface SessionTemplate {
+interface UISessionTemplate {
   id: string;
   name: string;
   description: string;
@@ -71,7 +72,7 @@ interface SessionTemplate {
   suggestedProviders?: string[];
 }
 
-const sessionTemplates: SessionTemplate[] = [
+const sessionTemplates: UISessionTemplate[] = [
   {
     id: 'general-coding',
     name: 'General Coding',
@@ -248,7 +249,7 @@ const ProviderCard: React.FC<ProviderCardProps> = ({ provider, isSelected, onSel
 };
 
 interface TemplateCardProps {
-  template: SessionTemplate;
+  template: UISessionTemplate;
   isSelected: boolean;
   onSelect: () => void;
 }
@@ -302,7 +303,7 @@ export const SessionCreation: React.FC<SessionCreationProps> = ({
   
   // Form state
   const [currentTab, setCurrentTab] = useState('template');
-  const [selectedTemplate, setSelectedTemplate] = useState<SessionTemplate | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<UISessionTemplate | null>(null);
   const [sessionName, setSessionName] = useState('');
   const [projectPath, setProjectPath] = useState(initialPath || '');
   const [selectedProvider, setSelectedProvider] = useState('');
@@ -313,16 +314,35 @@ export const SessionCreation: React.FC<SessionCreationProps> = ({
   const [temperature, setTemperature] = useState(0.7);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
+  const [showDirectoryPicker, setShowDirectoryPicker] = useState(false);
+  const [tempDirectoryPath, setTempDirectoryPath] = useState('');
 
   // Get available providers (authenticated only)
   const availableProviders = providers.filter(p => p.authenticated && p.status === 'online');
+
+  const resetForm = useCallback(() => {
+    setCurrentTab('template');
+    setSelectedTemplate(null);
+    setSessionName('');
+    setProjectPath(initialPath || '');
+    setSelectedProvider('');
+    setSelectedModel('');
+    setSystemPrompt('');
+    setEnabledTools([]);
+    setMaxTokens(8000);
+    setTemperature(0.7);
+    setIsCreating(false);
+    setError('');
+    setShowDirectoryPicker(false);
+    setTempDirectoryPath('');
+  }, [initialPath]);
 
   // Reset form when dialog opens/closes
   useEffect(() => {
     if (open) {
       resetForm();
     }
-  }, [open, initialPath]);
+  }, [open, initialPath, resetForm]);
 
   // Update form when template is selected
   useEffect(() => {
@@ -349,27 +369,47 @@ export const SessionCreation: React.FC<SessionCreationProps> = ({
     setSelectedModel('');
   }, [selectedProvider]);
 
-  const resetForm = () => {
-    setCurrentTab('template');
-    setSelectedTemplate(null);
-    setSessionName('');
-    setProjectPath(initialPath || '');
-    setSelectedProvider('');
-    setSelectedModel('');
-    setSystemPrompt('');
-    setEnabledTools([]);
-    setMaxTokens(8000);
-    setTemperature(0.7);
-    setIsCreating(false);
+  const handleSelectDirectory = () => {
+    setTempDirectoryPath(projectPath);
+    setShowDirectoryPicker(true);
+  };
+
+  const validateDirectoryPath = (path: string): string | null => {
+    if (!path.trim()) {
+      return 'Directory path cannot be empty';
+    }
+    
+    // Basic path validation
+    if (path.includes('//')) {
+      return 'Invalid path format';
+    }
+    
+    // Check for potentially dangerous paths
+    const dangerousPaths = ['/', '/System', '/etc', '/usr/bin', '/bin'];
+    if (dangerousPaths.some(dangerous => path.startsWith(dangerous))) {
+      return 'Cannot use system directories';
+    }
+    
+    return null;
+  };
+
+  const handleConfirmDirectory = () => {
+    const error = validateDirectoryPath(tempDirectoryPath);
+    if (error) {
+      setError(error);
+      return;
+    }
+    
+    setProjectPath(tempDirectoryPath.trim());
+    setShowDirectoryPicker(false);
+    setTempDirectoryPath('');
     setError('');
   };
 
-  const handleSelectDirectory = async () => {
-    // In a real implementation, this would open a directory picker
-    const directory = prompt('Enter project directory path:');
-    if (directory) {
-      setProjectPath(directory);
-    }
+  const handleCancelDirectory = () => {
+    setShowDirectoryPicker(false);
+    setTempDirectoryPath('');
+    setError('');
   };
 
   const getCurrentProvider = () => {
@@ -697,6 +737,83 @@ export const SessionCreation: React.FC<SessionCreationProps> = ({
           </div>
         </div>
       </DialogContent>
+
+      {/* Directory Picker Dialog */}
+      <Dialog open={showDirectoryPicker} onOpenChange={setShowDirectoryPicker}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Select Project Directory</DialogTitle>
+            <DialogDescription>
+              Enter the path to your project directory. This is where OpenCode will look for your project files.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="directory-path">Directory Path</Label>
+              <Input
+                id="directory-path"
+                placeholder="/Users/username/projects/my-project"
+                value={tempDirectoryPath}
+                onChange={(e) => setTempDirectoryPath(e.target.value)}
+                className="font-mono text-sm"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleConfirmDirectory();
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    handleCancelDirectory();
+                  }
+                }}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Tip: Use absolute paths like /Users/username/projects/my-project
+              </p>
+            </div>
+
+            {/* Common directory suggestions */}
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Quick Select:</Label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  '/Users/' + (typeof window !== 'undefined' ? (process.env.USER || 'username') : 'username'),
+                  '/Users/' + (typeof window !== 'undefined' ? (process.env.USER || 'username') : 'username') + '/Documents',
+                  '/Users/' + (typeof window !== 'undefined' ? (process.env.USER || 'username') : 'username') + '/Desktop',
+                  '/Users/' + (typeof window !== 'undefined' ? (process.env.USER || 'username') : 'username') + '/Projects'
+                ].map((suggestedPath) => (
+                  <Button
+                    key={suggestedPath}
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs font-mono"
+                    onClick={() => setTempDirectoryPath(suggestedPath)}
+                  >
+                    {suggestedPath.replace('/Users/' + (typeof window !== 'undefined' ? (process.env.USER || 'username') : 'username'), '~')}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end space-x-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={handleCancelDirectory}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmDirectory}
+              disabled={!tempDirectoryPath.trim()}
+            >
+              <Check className="h-4 w-4 mr-2" />
+              Select Directory
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 };

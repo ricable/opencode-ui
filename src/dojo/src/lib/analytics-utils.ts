@@ -147,7 +147,7 @@ export function processTimeSeriesData(
       sessions: existing.sessions + 1,
       inputTokens: existing.inputTokens + tokenUsage.input_tokens,
       outputTokens: existing.outputTokens + tokenUsage.output_tokens,
-      cacheTokens: existing.cacheTokens + (tokenUsage.cache_tokens || 0)
+      cacheTokens: existing.cacheTokens + ((tokenUsage as any).cache_tokens || 0)
     });
   });
 
@@ -293,7 +293,7 @@ export function processCacheAnalytics(sessions: Session[]): CacheAnalytics {
   sessions.forEach(session => {
     const tokenUsage = session.token_usage;
     if (tokenUsage) {
-      const cacheTokens = tokenUsage.cache_tokens || 0;
+      const cacheTokens = (tokenUsage as any).cache_tokens || 0;
       totalCacheTokens += cacheTokens;
       totalCacheReads += cacheTokens * 0.6; // Estimate 60% are reads
       totalCacheWrites += cacheTokens * 0.4; // Estimate 40% are writes

@@ -271,7 +271,7 @@ export const SessionSharing: React.FC<SessionSharingProps> = ({
             <span>Share Session</span>
           </DialogTitle>
           <DialogDescription>
-            Share "<span className="font-medium">{session.name || session.id}</span>" with others or across your devices
+            Share &quot;<span className="font-medium">{session.name || session.id}</span>&quot; with others or across your devices
           </DialogDescription>
         </DialogHeader>
 

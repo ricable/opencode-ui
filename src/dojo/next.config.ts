@@ -22,6 +22,9 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
     dirs: ['src'],
   },
+  typescript: {
+    tsconfigPath: './tsconfig.build.json',
+  },
   webpack: (config, { isServer }) => {
     // Ignore the demo files during build
     config.module.rules.push({
@@ -30,6 +33,15 @@ const nextConfig: NextConfig = {
     });
 
     return config;
+  },
+  // Proxy OpenCode API requests to avoid CORS issues
+  async rewrites() {
+    return [
+      {
+        source: '/api/opencode/:path*',
+        destination: 'http://127.0.0.1:4096/:path*',
+      },
+    ];
   },
 };
 

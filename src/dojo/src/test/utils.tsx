@@ -100,7 +100,7 @@ export const createMockUserEvent = () => ({
 
 // Accessibility testing helpers
 export const checkAccessibility = async (container: HTMLElement) => {
-  const { default: axe } = await import('jest-axe')
+  const { axe } = await import('jest-axe')
   const results = await axe(container)
   return results
 }

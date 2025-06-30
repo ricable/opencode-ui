@@ -682,7 +682,7 @@ function ServerDetailsView({ server }: { server: MCPServerWithStatus }) {
                   <Wrench className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                   <h3 className="text-lg font-semibold mb-2">No tools available</h3>
                   <p className="text-muted-foreground">
-                    This server hasn't registered any tools yet
+                    This server hasn&apos;t registered any tools yet
                   </p>
                 </CardContent>
               </Card>
@@ -723,7 +723,7 @@ function ServerDetailsView({ server }: { server: MCPServerWithStatus }) {
                   <ExternalLink className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                   <h3 className="text-lg font-semibold mb-2">No resources available</h3>
                   <p className="text-muted-foreground">
-                    This server hasn't registered any resources yet
+                    This server hasn&apos;t registered any resources yet
                   </p>
                 </CardContent>
               </Card>

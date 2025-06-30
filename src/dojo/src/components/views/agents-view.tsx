@@ -54,7 +54,7 @@ export function AgentsView({ onViewChange }: AgentsViewProps) {
       
       // In a real implementation, this would refresh the agents list
     } catch (error) {
-      toast.error("Failed to create agent. Please try again.");
+      toast({ title: "Error", description: "Failed to create agent. Please try again.", variant: "destructive" });
     } finally {
       setIsCreating(false);
     }

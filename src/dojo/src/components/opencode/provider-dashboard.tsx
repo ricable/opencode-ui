@@ -132,7 +132,7 @@ export const ProviderDashboard = () => {
 
       {/* Content */}
       <div className="flex-1 p-6">
-        <Tabs value={viewMode} onValueChange={setViewMode}>
+        <Tabs value={viewMode} onValueChange={(value: any) => setViewMode(value)}>
           <TabsList className="mb-6">
             <TabsTrigger value="grid">Grid View</TabsTrigger>
             <TabsTrigger value="list">List View</TabsTrigger>

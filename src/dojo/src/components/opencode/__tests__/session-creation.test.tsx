@@ -299,4 +299,164 @@ describe('SessionCreation', () => {
     expect((temperatureInput as HTMLInputElement).value).toBe('0.5')
     expect((maxTokensInput as HTMLInputElement).value).toBe('4000')
   })
+
+  it('opens directory picker dialog when folder button is clicked', async () => {
+    render(
+      <SessionCreation
+        open={true}
+        onOpenChange={() => {}}
+        initialPath=""
+      />
+    )
+
+    // Navigate to config tab (need to select template and provider first)
+    await userEvent.click(screen.getByText('General Coding'))
+    await userEvent.click(screen.getByText('Next'))
+    
+    await userEvent.click(screen.getByText('Anthropic'))
+    const modelSelect = screen.getByDisplayValue('Select a model')
+    await userEvent.click(modelSelect)
+    await userEvent.click(screen.getByText('claude-3-5-sonnet-20241022'))
+    await userEvent.click(screen.getByText('Next'))
+
+    // Find the folder button next to the project directory input
+    const folderButton = screen.getByRole('button', { 
+      name: /select directory/i 
+    })
+    await userEvent.click(folderButton)
+
+    // Check if directory picker dialog is opened
+    await waitFor(() => {
+      expect(screen.getByText('Select Project Directory')).toBeInTheDocument()
+    })
+  })
+
+  it('validates directory path input in picker dialog', async () => {
+    render(
+      <SessionCreation
+        open={true}
+        onOpenChange={() => {}}
+        initialPath=""
+      />
+    )
+
+    // Navigate to config tab and open directory picker
+    await userEvent.click(screen.getByText('General Coding'))
+    await userEvent.click(screen.getByText('Next'))
+    await userEvent.click(screen.getByText('Anthropic'))
+    const modelSelect = screen.getByDisplayValue('Select a model')
+    await userEvent.click(modelSelect)
+    await userEvent.click(screen.getByText('claude-3-5-sonnet-20241022'))
+    await userEvent.click(screen.getByText('Next'))
+
+    const folderButton = screen.getByRole('button', { 
+      name: /select directory/i 
+    })
+    await userEvent.click(folderButton)
+
+    await waitFor(() => {
+      expect(screen.getByText('Select Project Directory')).toBeInTheDocument()
+    })
+
+    // Try empty path - button should be disabled
+    const confirmButton = screen.getByText('Select Directory')
+    expect(confirmButton).toBeDisabled()
+
+    // Try dangerous path
+    const pathInput = screen.getByPlaceholderText('/Users/username/projects/my-project')
+    await userEvent.type(pathInput, '/System')
+    await userEvent.click(confirmButton)
+
+    await waitFor(() => {
+      expect(screen.getByText('Cannot use system directories')).toBeInTheDocument()
+    })
+
+    // Clear and try valid path
+    await userEvent.clear(pathInput)
+    await userEvent.type(pathInput, '/Users/testuser/projects/my-app')
+    await userEvent.click(confirmButton)
+
+    await waitFor(() => {
+      expect(screen.queryByText('Select Project Directory')).not.toBeInTheDocument()
+    })
+  })
+
+  it('supports keyboard navigation in directory picker', async () => {
+    render(
+      <SessionCreation
+        open={true}
+        onOpenChange={() => {}}
+        initialPath=""
+      />
+    )
+
+    // Navigate to config tab and open directory picker
+    await userEvent.click(screen.getByText('General Coding'))
+    await userEvent.click(screen.getByText('Next'))
+    await userEvent.click(screen.getByText('Anthropic'))
+    const modelSelect = screen.getByDisplayValue('Select a model')
+    await userEvent.click(modelSelect)
+    await userEvent.click(screen.getByText('claude-3-5-sonnet-20241022'))
+    await userEvent.click(screen.getByText('Next'))
+
+    const folderButton = screen.getByRole('button', { 
+      name: /select directory/i 
+    })
+    await userEvent.click(folderButton)
+
+    await waitFor(() => {
+      expect(screen.getByText('Select Project Directory')).toBeInTheDocument()
+    })
+
+    const pathInput = screen.getByPlaceholderText('/Users/username/projects/my-project')
+    
+    // Test Enter key
+    await userEvent.type(pathInput, '/Users/testuser/projects/valid-path')
+    await userEvent.keyboard('{Enter}')
+
+    await waitFor(() => {
+      expect(screen.queryByText('Select Project Directory')).not.toBeInTheDocument()
+    })
+  })
+
+  it('provides quick select options in directory picker', async () => {
+    render(
+      <SessionCreation
+        open={true}
+        onOpenChange={() => {}}
+        initialPath=""
+      />
+    )
+
+    // Navigate to config tab and open directory picker
+    await userEvent.click(screen.getByText('General Coding'))
+    await userEvent.click(screen.getByText('Next'))
+    await userEvent.click(screen.getByText('Anthropic'))
+    const modelSelect = screen.getByDisplayValue('Select a model')
+    await userEvent.click(modelSelect)
+    await userEvent.click(screen.getByText('claude-3-5-sonnet-20241022'))
+    await userEvent.click(screen.getByText('Next'))
+
+    const folderButton = screen.getByRole('button', { 
+      name: /select directory/i 
+    })
+    await userEvent.click(folderButton)
+
+    await waitFor(() => {
+      expect(screen.getByText('Select Project Directory')).toBeInTheDocument()
+    })
+
+    // Check for quick select options
+    expect(screen.getByText('Quick Select:')).toBeInTheDocument()
+    expect(screen.getByText('~')).toBeInTheDocument()
+    expect(screen.getByText('~/Documents')).toBeInTheDocument()
+    expect(screen.getByText('~/Desktop')).toBeInTheDocument()
+    expect(screen.getByText('~/Projects')).toBeInTheDocument()
+
+    // Click a quick select option
+    await userEvent.click(screen.getByText('~/Projects'))
+    
+    const pathInput = screen.getByPlaceholderText('/Users/username/projects/my-project')
+    expect(pathInput).toHaveValue('/Users/username/Projects')
+  })
 })

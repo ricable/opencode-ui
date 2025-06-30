@@ -462,7 +462,7 @@ export const SessionList: React.FC<SessionListProps> = ({
           <DialogHeader>
             <DialogTitle>Share Session</DialogTitle>
             <DialogDescription>
-              Share "<span className="font-medium">{selectedSession?.name || selectedSession?.id}</span>" with others
+              Share &quot;<span className="font-medium">{selectedSession?.name || selectedSession?.id}</span>&quot; with others
             </DialogDescription>
           </DialogHeader>
           

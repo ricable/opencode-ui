@@ -3,9 +3,21 @@
  * This extends the base types with additional interfaces needed for the enhanced client
  */
 
+// View System Types
+export type OpenCodeView = 
+  | "welcome" 
+  | "projects" 
+  | "providers" 
+  | "agents" 
+  | "settings" 
+  | "session" 
+  | "usage-dashboard" 
+  | "mcp"
+  | "tools";
+
 // Extended Session Types
 export interface SessionUpdate {
-  type: "message" | "status" | "error" | "tool_execution" | "stream_start" | "stream_end";
+  type: "message" | "status" | "error" | "tool_execution" | "stream_start" | "stream_end" | "heartbeat";
   data: any;
   timestamp: number;
 }
@@ -29,6 +41,25 @@ export interface OpenCodeStreamMessage {
     result?: any;
   }>;
   metadata?: Record<string, any>;
+  
+  // Legacy properties for backwards compatibility
+  type?: string;
+  subtype?: string;
+  isMeta?: boolean;
+  leafUuid?: string;
+  summary?: string;
+  message?: any;
+  cwd?: string;
+  tools?: string[];
+  session_id?: string;
+  is_error?: boolean;
+  result?: any;
+  error?: string;
+  cost_usd?: number;
+  total_cost_usd?: number;
+  duration_ms?: number;
+  num_turns?: number;
+  usage?: any;
 }
 
 export interface SessionSubscription {

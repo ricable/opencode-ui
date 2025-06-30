@@ -41,11 +41,11 @@ export const Toast: React.FC<ToastProps> = ({
   const getColorClasses = () => {
     switch (type) {
       case "success":
-        return "bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-200";
+        return "bg-success/10 border-success/20 text-success-foreground";
       case "error":
-        return "bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200";
+        return "bg-destructive/10 border-destructive/20 text-destructive-foreground";
       case "info":
-        return "bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-200";
+        return "bg-info/10 border-info/20 text-info-foreground";
     }
   };
 

@@ -722,7 +722,7 @@ function TemplateDetailsView({
                   <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                   <h3 className="text-lg font-semibold mb-2">No examples available</h3>
                   <p className="text-muted-foreground">
-                    This template doesn't include configuration examples
+                    This template doesn&apos;t include configuration examples
                   </p>
                 </CardContent>
               </Card>

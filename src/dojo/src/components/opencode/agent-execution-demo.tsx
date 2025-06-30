@@ -175,7 +175,7 @@ npm run build
       <div className="mb-6">
         <h1 className="text-2xl font-bold">OpenCode Multi-Provider Demo</h1>
         <p className="text-muted-foreground mt-2">
-          Demonstration of OpenCode's multi-provider AI system with tool execution across different providers
+          Demonstration of OpenCode&apos;s multi-provider AI system with tool execution across different providers
         </p>
       </div>
       

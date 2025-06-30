@@ -15,17 +15,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useSessionStore } from "@/lib/session-store";
-
-export type OpenCodeView = 
-  | "welcome" 
-  | "projects" 
-  | "providers" 
-  | "agents" 
-  | "settings" 
-  | "session" 
-  | "usage-dashboard" 
-  | "mcp"
-  | "tools";
+import { OpenCodeView } from "@/types/opencode";
 
 interface WelcomeViewProps {
   onViewChange: (view: OpenCodeView) => void;

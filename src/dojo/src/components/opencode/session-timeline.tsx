@@ -51,53 +51,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { useSessionStore, useActiveSession, useActiveSessionMessages } from '@/lib/session-store';
 import { AdvancedCheckpointManager } from './advanced-checkpoint-manager';
+import { 
+  Checkpoint, 
+  TimelineNode, 
+  CheckpointDiff 
+} from '@/types/opencode';
 
-interface Checkpoint {
-  id: string;
-  session_id: string;
-  name: string;
-  description?: string;
-  timestamp: number;
-  created_at: number;
-  message_index: number;
-  type: 'manual' | 'auto' | 'milestone';
-  metadata: {
-    userPrompt?: string;
-    totalTokens: number;
-    token_usage?: number;
-    fileChanges: number;
-    files_modified?: string[];
-    model?: string;
-    provider?: string;
-    cost?: number;
-    message_count?: number;
-    tools_used?: string[];
-  };
-  children?: Checkpoint[];
-}
-
-interface TimelineNode {
-  checkpoint: Checkpoint;
-  children: TimelineNode[];
-}
-
-interface SessionTimeline {
+interface LocalSessionTimeline {
   rootNode: TimelineNode | null;
   currentCheckpointId: string | null;
   totalCheckpoints: number;
-}
-
-interface CheckpointDiff {
-  modifiedFiles: Array<{
-    path: string;
-    additions: number;
-    deletions: number;
-  }>;
-  addedFiles: string[];
-  deletedFiles: string[];
-  tokenDelta: number;
-  messageDelta: number;
-  costDelta: number;
 }
 
 interface SessionTimelineProps {
@@ -126,7 +89,7 @@ interface SessionTimelineProps {
 interface TimelineNodeProps {
   node: TimelineNode;
   depth: number;
-  timeline: SessionTimeline;
+  timeline: LocalSessionTimeline;
   expandedNodes: Set<string>;
   selectedCheckpoint: Checkpoint | null;
   compact?: boolean;
@@ -261,7 +224,7 @@ const TimelineNodeComponent: React.FC<TimelineNodeProps> = ({
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Hash className="h-3 w-3" />
-                    {(checkpoint.metadata.totalTokens || checkpoint.metadata.token_usage || 0).toLocaleString()} tokens
+                    {(checkpoint.metadata.totalTokens || 0).toLocaleString()} tokens
                   </span>
                   <span className="flex items-center gap-1">
                     <FileCode className="h-3 w-3" />
@@ -423,7 +386,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   const messages = useActiveSessionMessages();
   const { actions } = useSessionStore();
   
-  const [timeline, setTimeline] = useState<SessionTimeline | null>(null);
+  const [timeline, setTimeline] = useState<LocalSessionTimeline | null>(null);
   const [selectedCheckpoint, setSelectedCheckpoint] = useState<Checkpoint | null>(null);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -440,7 +403,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   // Helper function to create timeline tree structure
-  const createTimelineTree = (checkpoints: Checkpoint[]): SessionTimeline => {
+  const createTimelineTree = (checkpoints: Checkpoint[]): LocalSessionTimeline => {
     // Create a tree structure from flat checkpoint array
     // For now, create a simple tree with branching example
     const rootCheckpoint = checkpoints[0];
@@ -459,7 +422,8 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     // Create branch example: root -> [branch, current]
     const rootNode: TimelineNode = {
       checkpoint: rootCheckpoint,
-      children: []
+      children: [],
+      depth: 0
     };
 
     if (branchCheckpoint) {
@@ -467,8 +431,12 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
         checkpoint: branchCheckpoint,
         children: branchChild ? [{
           checkpoint: branchChild,
-          children: []
-        }] : []
+          children: [],
+          depth: 2,
+          parent: undefined
+        }] : [],
+        depth: 1,
+        parent: rootNode
       };
       
       rootNode.children.push(branchNode);
@@ -477,7 +445,9 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
     if (currentCheckpoint) {
       rootNode.children.push({
         checkpoint: currentCheckpoint,
-        children: []
+        children: [],
+        depth: 1,
+        parent: rootNode
       });
     }
 
@@ -521,9 +491,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
           message_index: 0,
           type: 'auto',
           metadata: {
-            message_count: 1,
             totalTokens: 150,
-            token_usage: 150,
             fileChanges: 0,
             cost: 0.001,
             provider: 'anthropic'
@@ -539,13 +507,11 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
           message_index: 5,
           type: 'manual',
           metadata: {
-            message_count: 6,
             totalTokens: 450,
-            token_usage: 450,
             fileChanges: 2,
             cost: 0.012,
-            tools_used: ['file_write', 'sql_executor'],
-            files_modified: ['schema.sql', 'migrations/001_update_users.sql'],
+            toolsUsed: ['file_write', 'sql_executor'],
+            filesModified: ['schema.sql', 'migrations/001_update_users.sql'],
             provider: 'openai'
           }
         },
@@ -559,13 +525,11 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
           message_index: 8,
           type: 'milestone',
           metadata: {
-            message_count: 9,
             totalTokens: 680,
-            token_usage: 680,
             fileChanges: 3,
             cost: 0.018,
-            tools_used: ['file_write', 'bash'],
-            files_modified: ['routes/auth.js', 'controllers/auth.js', 'middleware/jwt.js'],
+            toolsUsed: ['file_write', 'bash'],
+            filesModified: ['routes/auth.js', 'controllers/auth.js', 'middleware/jwt.js'],
             provider: 'openai'
           }
         },
@@ -579,13 +543,11 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
           message_index: messages.length - 1,
           type: 'auto',
           metadata: {
-            message_count: messages.length,
             totalTokens: 1250,
-            token_usage: 1250,
             fileChanges: 2,
             cost: 0.045,
-            tools_used: ['file_read', 'file_write'],
-            files_modified: ['src/auth.js', 'src/api.js'],
+            toolsUsed: ['file_read', 'file_write'],
+            filesModified: ['src/auth.js', 'src/api.js'],
             provider: 'anthropic'
           }
         }
@@ -632,9 +594,7 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
         message_index: messages.length - 1,
         type: 'manual',
         metadata: {
-          message_count: messages.length,
           totalTokens: 0,
-          token_usage: 0,
           fileChanges: 0,
           cost: 0,
           provider: 'current' // Get from active session
@@ -727,15 +687,31 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
       
       // Mock diff data - in real implementation this would come from API
       const mockDiff: CheckpointDiff = {
-        modifiedFiles: [
-          { path: 'src/auth.js', additions: 15, deletions: 3 },
-          { path: 'src/api.js', additions: 8, deletions: 2 }
+        from_checkpoint: selectedCheckpoint,
+        to_checkpoint: checkpoint,
+        modified_files: [
+          { 
+            path: 'src/auth.js', 
+            old_content: '// old content',
+            new_content: '// new content',
+            additions: 15, 
+            deletions: 3,
+            changes: []
+          },
+          { 
+            path: 'src/api.js', 
+            old_content: '// old content',
+            new_content: '// new content',
+            additions: 8, 
+            deletions: 2,
+            changes: []
+          }
         ],
-        addedFiles: ['src/utils.js'],
-        deletedFiles: [],
-        tokenDelta: checkpoint.metadata.totalTokens - selectedCheckpoint.metadata.totalTokens,
-        messageDelta: (checkpoint.metadata.message_count || 0) - (selectedCheckpoint.metadata.message_count || 0),
-        costDelta: (checkpoint.metadata.cost || 0) - (selectedCheckpoint.metadata.cost || 0)
+        added_files: ['src/utils.js'],
+        deleted_files: [],
+        token_delta: checkpoint.metadata.totalTokens - selectedCheckpoint.metadata.totalTokens,
+        cost_delta: (checkpoint.metadata.cost || 0) - (selectedCheckpoint.metadata.cost || 0),
+        total_changes: 25
       };
       
       setDiff(mockDiff);
@@ -1041,47 +1017,45 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                 <Card>
                   <CardContent className="p-3">
                     <div className="text-xs text-muted-foreground">Modified Files</div>
-                    <div className="text-2xl font-bold">{diff.modifiedFiles.length}</div>
+                    <div className="text-2xl font-bold">{diff.modified_files.length}</div>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-3">
                     <div className="text-xs text-muted-foreground">Added Files</div>
-                    <div className="text-2xl font-bold text-green-600">{diff.addedFiles.length}</div>
+                    <div className="text-2xl font-bold text-green-600">{diff.added_files.length}</div>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-3">
                     <div className="text-xs text-muted-foreground">Deleted Files</div>
-                    <div className="text-2xl font-bold text-red-600">{diff.deletedFiles.length}</div>
+                    <div className="text-2xl font-bold text-red-600">{diff.deleted_files.length}</div>
                   </CardContent>
                 </Card>
               </div>
               
               {/* Deltas */}
               <div className="flex items-center justify-center gap-4">
-                <Badge variant={diff.tokenDelta > 0 ? "default" : "secondary"}>
-                  {diff.tokenDelta > 0 ? "+" : ""}{diff.tokenDelta.toLocaleString()} tokens
+                <Badge variant={diff.token_delta > 0 ? "default" : "secondary"}>
+                  {diff.token_delta > 0 ? "+" : ""}{diff.token_delta.toLocaleString()} tokens
                 </Badge>
-                <Badge variant={diff.messageDelta > 0 ? "default" : "secondary"}>
-                  {diff.messageDelta > 0 ? "+" : ""}{diff.messageDelta} messages
-                </Badge>
-                {diff.costDelta !== 0 && (
-                  <Badge variant={diff.costDelta > 0 ? "default" : "secondary"}>
-                    {diff.costDelta > 0 ? "+" : ""}${diff.costDelta.toFixed(4)}
+                {/* Message delta not available in CheckpointDiff */}
+                {diff.cost_delta !== 0 && (
+                  <Badge variant={diff.cost_delta > 0 ? "default" : "secondary"}>
+                    {diff.cost_delta > 0 ? "+" : ""}${diff.cost_delta.toFixed(4)}
                   </Badge>
                 )}
               </div>
               
               {/* File lists */}
-              {diff.modifiedFiles.length > 0 && (
+              {diff.modified_files.length > 0 && (
                 <div>
                   <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
                     <FileCode className="h-4 w-4" />
                     Modified Files
                   </h4>
                   <div className="space-y-1">
-                    {diff.modifiedFiles.map((file) => (
+                    {diff.modified_files.map((file) => (
                       <div key={file.path} className="flex items-center justify-between text-xs p-2 bg-muted rounded">
                         <span className="font-mono">{file.path}</span>
                         <div className="flex items-center gap-2 text-xs">
@@ -1094,14 +1068,14 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                 </div>
               )}
               
-              {diff.addedFiles.length > 0 && (
+              {diff.added_files.length > 0 && (
                 <div>
                   <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
                     <Plus className="h-4 w-4 text-green-600" />
                     Added Files
                   </h4>
                   <div className="space-y-1">
-                    {diff.addedFiles.map((file) => (
+                    {diff.added_files.map((file) => (
                       <div key={file} className="text-xs font-mono text-green-600 p-2 bg-green-50 dark:bg-green-900/20 rounded">
                         + {file}
                       </div>
@@ -1110,14 +1084,14 @@ export const SessionTimeline: React.FC<SessionTimelineProps> = ({
                 </div>
               )}
               
-              {diff.deletedFiles.length > 0 && (
+              {diff.deleted_files.length > 0 && (
                 <div>
                   <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
                     <Trash2 className="h-4 w-4 text-red-600" />
                     Deleted Files
                   </h4>
                   <div className="space-y-1">
-                    {diff.deletedFiles.map((file) => (
+                    {diff.deleted_files.map((file) => (
                       <div key={file} className="text-xs font-mono text-red-600 p-2 bg-red-50 dark:bg-red-900/20 rounded">
                         - {file}
                       </div>

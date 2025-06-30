@@ -89,10 +89,10 @@ const StreamMessageComponent: React.FC<StreamMessageProps> = ({
     
     // Iterate through all messages to find tool results
     streamMessages.forEach(msg => {
-      if (msg.type === "user" && msg.message?.content && Array.isArray(msg.message.content)) {
-        msg.message.content.forEach((content: any) => {
-          if (content.type === "tool_result" && content.tool_use_id) {
-            results.set(content.tool_use_id, content);
+      if (msg.tool_calls) {
+        msg.tool_calls.forEach((toolCall) => {
+          if (toolCall.result) {
+            results.set(toolCall.id, toolCall.result);
           }
         });
       }
@@ -131,14 +131,9 @@ const StreamMessageComponent: React.FC<StreamMessageProps> = ({
   };
   
   try {
-    // Skip rendering for meta messages that don't have meaningful content
-    if (message.isMeta && !message.leafUuid && !message.summary) {
+    // Skip rendering for messages without content
+    if (!message.content) {
       return null;
-    }
-
-    // Handle summary messages
-    if (message.leafUuid && message.summary && (message as any).type === "summary") {
-      return <SummaryWidget summary={message.summary} leafUuid={message.leafUuid} />;
     }
 
     // System initialization message
@@ -450,7 +445,7 @@ const StreamMessageComponent: React.FC<StreamMessageProps> = ({
                     }
                     
                     // Always show system reminders regardless of widget status
-                    const reminderMatch = contentText.match(/<system-reminder>(.*?)<\/system-reminder>/s);
+                    const reminderMatch = contentText.match(/<system-reminder>([\s\S]*?)<\/system-reminder>/);
                     if (reminderMatch) {
                       const reminderMessage = reminderMatch[1].trim();
                       const beforeReminder = contentText.substring(0, reminderMatch.index || 0).trim();

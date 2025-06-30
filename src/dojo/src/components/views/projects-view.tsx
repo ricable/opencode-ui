@@ -16,6 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useSessionStore } from "@/lib/session-store";
+import { OpenCodeView } from "@/types/opencode";
 
 interface Project {
   id: string;
@@ -37,17 +38,6 @@ interface Session {
   message_count: number;
   cost: number;
 }
-
-export type OpenCodeView = 
-  | "welcome" 
-  | "projects" 
-  | "providers" 
-  | "agents" 
-  | "settings" 
-  | "session" 
-  | "usage-dashboard" 
-  | "mcp"
-  | "tools";
 
 interface ProjectsViewProps {
   onViewChange: (view: OpenCodeView) => void;
@@ -164,6 +154,7 @@ export function ProjectsView({ onViewChange }: ProjectsViewProps) {
   const handleNewSession = async () => {
     try {
       const sessionConfig = {
+        project_path: "/tmp/quick-session",
         provider: "anthropic",
         model: "claude-3-5-sonnet-20241022",
         max_tokens: 8000,
